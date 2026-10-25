@@ -94,3 +94,17 @@ test('reconciles the remote projection on restart even if checkpoint matches', a
 	expect(surface.versions.get(mapping.artifact_id)?.length).toBe(1)
 	journal.close()
 })
+
+test('a retained delivery journal refuses a different HP root or unit', () => {
+	const path = join(directory, 'source.sqlite')
+	let journal = new BridgeJournal(path)
+	journal.bindSource('/owned/root', 'demo/t-0001')
+	const mapping = journal.mapping('demo/t-0001')
+	journal.close()
+	journal = new BridgeJournal(path)
+	journal.bindSource('/owned/root', 'demo/t-0001')
+	expect(journal.mapping('demo/t-0001').task_id).toBe(mapping.task_id)
+	expect(() => journal.bindSource('/another/root', 'demo/t-0001')).toThrow('source changed')
+	expect(() => journal.bindSource('/owned/root', 'demo/t-0002')).toThrow('source changed')
+	journal.close()
+})

@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, lstatSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import {
@@ -11,8 +11,11 @@ import {
 	type FactorySnapshot,
 } from '@humanlayer/db/factory-unit'
 import { uuidv7 } from 'uuidv7'
+import z from 'zod/v4'
 
 import { localAuthConfig, LOCAL_ORG_ID, LOCAL_USER_ID, loopbackOrigin } from './config'
+import { DecisionPump, QueuedRequestSchema, type DecisionSurface } from './decisions'
+import { HpGates } from './hp-gates'
 
 export interface Surface {
 	ensureTask(taskId: string, unit: string): Promise<void>
@@ -42,10 +45,26 @@ export class BridgeJournal {
 		if (existsSync(path) && lstatSync(path).isSymbolicLink()) throw new Error('Symlinked bridge journal refused')
 		this.db = new Database(path, { create: true })
 		this.db.exec(
-			'PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS delivery (unit TEXT PRIMARY KEY, task_id TEXT NOT NULL, artifact_id TEXT NOT NULL, last_hash TEXT, revision INTEGER NOT NULL DEFAULT 0, pending_hash TEXT, generation INTEGER NOT NULL DEFAULT 0)',
+			'PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS delivery (unit TEXT PRIMARY KEY, task_id TEXT NOT NULL, artifact_id TEXT NOT NULL, last_hash TEXT, revision INTEGER NOT NULL DEFAULT 0, pending_hash TEXT, generation INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS source (id INTEGER PRIMARY KEY CHECK(id=1), binding TEXT NOT NULL)',
 		)
 		chmodSync(path, 0o600)
 	}
+	/** A delivery journal cannot be silently reused against another HP root or unit. */
+	bindSource(root: string, unit: string) {
+		const binding = JSON.stringify({ root, unit })
+		this.db.transaction(() => {
+			const old = this.db.query<{ binding: string }, []>('SELECT binding FROM source WHERE id=1').get()
+			if (old && old.binding !== binding)
+				throw new Error('Bridge HP source changed; use its matching journal and root')
+			if (!old) {
+				const count = this.db.query<{ n: number }, []>('SELECT count(*) AS n FROM delivery').get()
+				if (count?.n)
+					throw new Error('Legacy journal has no HP source binding; preserve it and use a new isolated state')
+				this.db.query('INSERT INTO source (id,binding) VALUES (1,?)').run(binding)
+			}
+		})()
+	}
+
 	mapping(unit: string): Delivery {
 		return this.db.transaction(() => {
 			const existing = this.db
@@ -136,7 +155,22 @@ export async function readHpUnit(binary: string, root: string, project: string, 
 	return snapshot
 }
 
-export function localSurface(origin: string, token: () => Promise<string>, bridgeSecret: string): Surface {
+/** Unit and report are separate CLI reads; retry an intervening Ready amendment instead of mixing revisions. */
+export async function readHpProjection(hp: HpGates) {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const snapshot = await readHpUnit(hp.binary, hp.root, hp.project, hp.thread)
+		const context = await hp.context()
+		const coherent = FactorySnapshotSchema.safeParse({ ...snapshot, gateContext: context })
+		if (coherent.success) return coherent.data
+	}
+	throw new Error('HP changed during projection; retry a coherent read')
+}
+
+export function localSurface(
+	origin: string,
+	token: () => Promise<string>,
+	bridgeSecret: string,
+): Surface & DecisionSurface {
 	loopbackOrigin(origin)
 	async function post(path: string, input: unknown, method = 'POST'): Promise<unknown> {
 		const response = await fetch(origin + path, {
@@ -153,6 +187,21 @@ export function localSurface(origin: string, token: () => Promise<string>, bridg
 		return response.json()
 	}
 	return {
+		async requests(taskId) {
+			const response = await fetch(origin + '/factory/units/' + taskId + '/requests/queue', {
+				headers: { Authorization: 'Bearer ' + (await token()), 'x-factory-bridge': bridgeSecret },
+				signal: AbortSignal.timeout(15_000),
+			})
+			if (!response.ok) throw new Error('Could not read decision queue')
+			return z.array(QueuedRequestSchema).parse(await response.json())
+		},
+		async decision(taskId, id, response, error) {
+			await post(
+				'/factory/units/' + taskId + '/requests/' + id + '/authority',
+				{ response, error: error?.slice(0, 1000) ?? null },
+				'PUT',
+			)
+		},
 		async ensureTask(taskId, unit) {
 			const result = await post('/rpc/api/v1/tasks/create', {
 				id: taskId,
@@ -263,25 +312,38 @@ if (import.meta.main) {
 		return body.token
 	}
 	const surface = localSurface(process.env.LOCAL_API_ORIGIN ?? 'http://127.0.0.1:55800', token, bridgeSecret)
+	const abort = new AbortController()
+	const hp = new HpGates(
+		process.env.LOCAL_HP_BINARY ?? '',
+		process.env.LOCAL_HP_ROOT ?? '',
+		process.env.LOCAL_HP_PROJECT ?? '',
+		process.env.LOCAL_HP_THREAD ?? '',
+		abort.signal,
+	)
+	journal.bindSource(await realpath(hp.root), hp.project + '/' + hp.thread)
+	await hp.capabilities()
+	const decisions = new DecisionPump(hp, surface)
 	let stopped = false
 	process.on('SIGINT', () => {
 		stopped = true
+		abort.abort()
 	})
 	process.on('SIGTERM', () => {
 		stopped = true
+		abort.abort()
 	})
 	try {
 		let lastReconcile = 0
+		let lastDecisions = 0
 		while (!stopped) {
 			try {
-				const snapshot = await readHpUnit(
-					process.env.LOCAL_HP_BINARY ?? '',
-					process.env.LOCAL_HP_ROOT ?? '',
-					process.env.LOCAL_HP_PROJECT ?? '',
-					process.env.LOCAL_HP_THREAD ?? '',
-				)
+				const coherent = await readHpProjection(hp)
 				const force = Date.now() - lastReconcile > 5000
-				await projectUnit(journal, surface, snapshot, force)
+				const taskId = await projectUnit(journal, surface, coherent, force)
+				if (Date.now() - lastDecisions > 1000) {
+					await decisions.refresh(taskId)
+					lastDecisions = Date.now()
+				}
 				if (force) lastReconcile = Date.now()
 			} catch (error) {
 				console.error(error instanceof Error ? error.message : 'Bridge synchronization failed')
@@ -290,6 +352,8 @@ if (import.meta.main) {
 			await Bun.sleep(250)
 		}
 	} finally {
+		abort.abort()
+		await decisions.settle()
 		journal.close()
 		await release()
 	}

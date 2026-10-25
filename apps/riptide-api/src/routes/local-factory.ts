@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 
+import { hpRequest, HpGateResponseSchema } from '@humanlayer/db/factory-gate'
 import {
 	canonicalFactorySnapshot,
 	renderFactoryUnit,
@@ -85,7 +86,11 @@ export function createLocalFactoryRoutes(
 			.where(eq(factoryRequests.task_id, projection.task_id))
 			.orderBy(desc(factoryRequests.created_at))
 			.limit(20)
-		return c.json({ projection, requests, decisionCapability: 'unavailable' as const })
+		return c.json({
+			projection,
+			requests,
+			decisionCapability: projection.snapshot.gateContext ? ('available' as const) : ('unavailable' as const),
+		})
 	})
 	app.put('/units/:taskId', async (c) => {
 		if (!sameSecret(c.req.header('x-factory-bridge') ?? '', dependencies.bridgeSecret))
@@ -94,6 +99,12 @@ export function createLocalFactoryRoutes(
 		if (!decoded.success) return c.json({ error: 'Invalid projection' }, 400)
 		const input = decoded.data
 		const auth = c.get('auth')
+		if (
+			input.snapshot.gateContext &&
+			createHash('sha256').update(input.snapshot.gateContext.report).digest('hex') !==
+				input.snapshot.gateContext.binding.report_hash
+		)
+			return c.json({ error: 'Report digest does not match' }, 409)
 		if (createHash('sha256').update(canonicalFactorySnapshot(input.snapshot)).digest('hex') !== input.snapshotHash)
 			return c.json({ error: 'Projection digest does not match' }, 409)
 		const accepted = await database.transaction(async (tx) => {
@@ -153,6 +164,65 @@ export function createLocalFactoryRoutes(
 		if (!accepted) return c.json({ error: 'Projection identity does not match' }, 409)
 		return c.json({ projected: true })
 	})
+	app.get('/units/:taskId/requests/queue', async (c) => {
+		if (!sameSecret(c.req.header('x-factory-bridge') ?? '', dependencies.bridgeSecret))
+			return c.json({ error: 'Bridge credential required' }, 403)
+		const rows = await database
+			.select({
+				id: factoryRequests.id,
+				payload: factoryRequests.payload,
+				created_by_user_id: factoryRequests.created_by_user_id,
+				artifact_id: factoryUnits.artifact_id,
+			})
+			.from(factoryRequests)
+			.innerJoin(factoryUnits, eq(factoryRequests.task_id, factoryUnits.task_id))
+			.where(eq(factoryRequests.task_id, c.req.param('taskId')))
+			.orderBy(factoryRequests.created_at)
+		return c.json(rows)
+	})
+	app.put('/units/:taskId/requests/:id/authority', async (c) => {
+		if (!z.uuid().safeParse(c.req.param('id')).success) return c.json({ error: 'Invalid request identity' }, 400)
+		if (!sameSecret(c.req.header('x-factory-bridge') ?? '', dependencies.bridgeSecret))
+			return c.json({ error: 'Bridge credential required' }, 403)
+		const decoded = z
+			.object({ response: HpGateResponseSchema.nullable(), error: z.string().max(1000).nullable() })
+			.strict()
+			.safeParse(await c.req.json().catch(() => null))
+		if (
+			!decoded.success ||
+			(!decoded.data.response && !decoded.data.error) ||
+			(decoded.data.response && decoded.data.error)
+		)
+			return c.json({ error: 'Invalid HP result' }, 400)
+		const input = decoded.data
+		const updated = await database.transaction(async (tx) => {
+			const [row] = await tx
+				.select()
+				.from(factoryRequests)
+				.where(
+					and(eq(factoryRequests.id, c.req.param('id')), eq(factoryRequests.task_id, c.req.param('taskId'))),
+				)
+				.for('update')
+			if (!row) return false
+			const [projection] = await tx.select().from(factoryUnits).where(eq(factoryUnits.task_id, row.task_id))
+			if (!projection) return false
+			if (input.response) {
+				const expected = hpRequest(row.payload, projection.artifact_id, row.created_by_user_id)
+				if (
+					input.response.unit !== projection.unit ||
+					JSON.stringify(input.response.record.request) !== JSON.stringify(expected) ||
+					(row.hp_response && row.hp_response.record.sequence > input.response.record.sequence)
+				)
+					return false
+			}
+			await tx
+				.update(factoryRequests)
+				.set({ hp_response: input.response, hp_checked_at: Date.now(), delivery_error: input.error })
+				.where(eq(factoryRequests.id, row.id))
+			return true
+		})
+		return updated ? c.json({ projected: true }) : c.json({ error: 'HP result binding does not match' }, 409)
+	})
 	app.post('/units/:taskId/requests', async (c) => {
 		const decoded = FactoryRequestSchema.safeParse(await c.req.json().catch(() => null))
 		if (!decoded.success)
@@ -170,6 +240,8 @@ export function createLocalFactoryRoutes(
 				.where(eq(factoryUnits.task_id, c.req.param('taskId')))
 				.for('update')
 			if (!projection) return 'missing'
+			const context = projection.snapshot.gateContext
+			if (!context) return 'unavailable'
 			const [old] = await tx.select().from(factoryRequests).where(eq(factoryRequests.id, input.id))
 			if (old)
 				return old.task_id === projection.task_id &&
@@ -185,7 +257,9 @@ export function createLocalFactoryRoutes(
 				projection.artifact_version_id !== input.artifactVersionId ||
 				artifact?.current_version_id !== input.artifactVersionId ||
 				projection.snapshot.ready.revision !== input.readyRevision ||
-				projection.snapshot.ready.digest !== input.readyDigest
+				projection.snapshot.ready.digest !== input.readyDigest ||
+				context.binding.report_hash !== input.reportHash ||
+				context.gate !== input.gate
 			)
 				return 'stale'
 			await tx.insert(factoryRequests).values({
@@ -199,10 +273,12 @@ export function createLocalFactoryRoutes(
 			return 'pending'
 		})
 		if (result === 'missing') return c.notFound()
+		if (result === 'unavailable')
+			return c.json({ error: 'Could not request approval. Wait for the review document to sync.' }, 503)
 		if (result !== 'pending')
 			return c.json({ error: 'Could not request approval. Review the latest document and try again.' }, 409)
 		// B3 owns attestation. No legacy approval command, event or invented receipt is emitted.
-		return c.json({ id: input.id, status: 'pending', decisionCapability: 'unavailable' }, 202)
+		return c.json({ id: input.id, status: 'pending', decisionCapability: 'available' }, 202)
 	})
 	return app
 }

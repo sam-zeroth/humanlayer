@@ -9,7 +9,8 @@
 	"dependencies": {
 		"@humanlayer/db": "workspace:*",
 		"drizzle-orm": "catalog:",
-		"uuidv7": "^1.1.0"
+		"uuidv7": "^1.1.0",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

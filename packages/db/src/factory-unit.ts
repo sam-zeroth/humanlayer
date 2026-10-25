@@ -1,5 +1,7 @@
 import z from 'zod/v4'
 
+import { FactoryGateContextSchema } from './factory-gate'
+
 const Digest = z.string().regex(/^sha256:[a-f0-9]{64}$/)
 export const FactorySnapshotSchema = z
 	.object({
@@ -9,6 +11,7 @@ export const FactorySnapshotSchema = z
 			digest: Digest,
 			outcome: z.looseObject({ before_after: z.string() }),
 		}),
+		gateContext: FactoryGateContextSchema.optional(),
 		completion: z.looseObject({
 			unit: z.string(),
 			ready_revision: z.number().int().positive(),
@@ -26,7 +29,11 @@ export const FactorySnapshotSchema = z
 		(s) =>
 			s.ready.id === s.completion.unit &&
 			s.ready.revision === s.completion.ready_revision &&
-			s.ready.digest === s.completion.ready_digest,
+			s.ready.digest === s.completion.ready_digest &&
+			(!s.gateContext ||
+				(s.gateContext.unit === s.ready.id &&
+					s.gateContext.binding.ready_revision === s.ready.revision &&
+					s.gateContext.binding.ready_digest === s.ready.digest)),
 		{ message: 'Inconsistent HP snapshot' },
 	)
 export type FactorySnapshot = z.infer<typeof FactorySnapshotSchema>
@@ -37,7 +44,15 @@ export const FactoryRequestSchema = z
 		artifactVersionId: z.uuid(),
 		readyRevision: z.number().int().positive(),
 		readyDigest: Digest,
-		words: z.string().trim().min(1).max(500),
+		reportHash: z
+			.string()
+			.regex(/^[a-f0-9]{64}$/)
+			.optional(),
+		words: z
+			.string()
+			.min(1)
+			.max(500)
+			.refine((value) => value.trim().length > 0),
 	})
 	.strict()
 export type FactoryRequest = z.infer<typeof FactoryRequestSchema>
