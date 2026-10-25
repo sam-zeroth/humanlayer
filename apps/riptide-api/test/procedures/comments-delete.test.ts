@@ -17,6 +17,7 @@ import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMo
 import { bindProcedureToRuntime, createRuntimeWithTestPostgresLayer } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -103,7 +104,11 @@ describe('api/comments/delete', async () => {
 	async function createComment(uid = userId) {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Comment to delete' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Comment to delete',
+			},
 			{ context: makeContext(uid) },
 		)
 		return result.commentId
@@ -113,6 +118,7 @@ describe('api/comments/delete', async () => {
 		const rootResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'V2 root',
 				anchorJson: {
@@ -139,12 +145,22 @@ describe('api/comments/delete', async () => {
 		)
 		const replyResult = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Owned reply', replyToCommentId: rootResult.commentId },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Owned reply',
+				replyToCommentId: rootResult.commentId,
+			},
 			{ context: makeContext() },
 		)
 		const siblingResult = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Sibling reply', replyToCommentId: rootResult.commentId },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Sibling reply',
+				replyToCommentId: rootResult.commentId,
+			},
 			{ context: makeContext() },
 		)
 		return { rootId: rootResult.commentId, replyId: replyResult.commentId, siblingId: siblingResult.commentId }
@@ -291,7 +307,12 @@ describe('api/comments/delete', async () => {
 		const rootId = await createComment()
 		const replyResult = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Legacy reply', replyToCommentId: rootId },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Legacy reply',
+				replyToCommentId: rootId,
+			},
 			{ context: makeContext() },
 		)
 

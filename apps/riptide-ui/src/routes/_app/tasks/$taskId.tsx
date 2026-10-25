@@ -2,6 +2,7 @@ import { useIsMobile } from '@humanlayer/ui/hooks/use-mobile'
 import { createFileRoute } from '@tanstack/react-router'
 import z from 'zod/v4'
 
+import { WiredFactoryUnitPage } from '@/components/factory/WiredFactoryUnitPage'
 import { DesktopTaskDetailPage } from '@/components/task-detail/DesktopTaskDetailPage'
 import { useMinimalistLayout } from '@/hooks/use-minimalist-layout'
 import { useDeepLinkHandoff } from '@/hooks/useDeepLinkHandoff'
@@ -14,6 +15,7 @@ export const taskDetailSearchSchema = z.object({
 	view: z.literal('changes').optional(),
 	pr: optionalBooleanSearchParam,
 	from: z.enum(['archive-tasks']).optional(),
+	factory: optionalBooleanSearchParam,
 	artifactId: z.string().optional(),
 	commentId: z.string().optional(),
 	/** V2 comment deep link: one-shot reveal of a root/reply ID (with artifactId). */
@@ -42,7 +44,8 @@ export const Route = createFileRoute('/_app/tasks/$taskId')({
 function TaskDetailPage() {
 	const minimalist = useMinimalistLayout()
 	const { taskId } = Route.useParams()
-	const { session } = Route.useSearch()
+	const { session, factory } = Route.useSearch()
+	if (import.meta.env.VITE_LOCAL_SURFACE === '1' && factory) return <WiredFactoryUnitPage taskId={taskId} />
 	if (minimalist) return <MinimalistTaskPage key={taskId} taskId={taskId} sessionId={session} />
 	return <StandardTaskDetailPage />
 }

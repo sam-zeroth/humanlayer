@@ -35,6 +35,7 @@ export const CommentUserInfoInput = Schema.Struct({
 export const CreateArtifactCommentInput = Schema.Struct({
 	id: Schema.optionalKey(Schema.String),
 	artifactId: Schema.String,
+	artifactVersionId: Schema.String,
 	contentText: Schema.String,
 	contentJson: Schema.optionalKey(Schema.Json),
 	commentedUponBlockText: Schema.optionalKey(Schema.String),
@@ -62,6 +63,7 @@ export const ReplyToArtifactCommentInput = Schema.Struct({
 	taskId: Schema.String,
 	artifactFilename: Schema.String,
 	truncatedCommentId: Schema.String,
+	artifactVersionId: Schema.optionalKey(Schema.String),
 	contentText: Schema.String,
 	userInfo: CommentUserInfoInput,
 })

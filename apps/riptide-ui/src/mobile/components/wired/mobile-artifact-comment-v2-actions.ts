@@ -9,6 +9,7 @@ import type { RiptideApiClient } from '@/orpc/client'
 
 interface MobileV2Identity {
 	artifactId: string
+	artifactVersionId: string
 	organizationId: string
 	resourceOwnerUserId: string
 	taskId: string
@@ -43,6 +44,7 @@ export function createMobileArtifactCommentV2Actions(
 			const response = await api.comments.create({
 				id: input.id,
 				artifactId: input.artifactId,
+				artifactVersionId: input.artifactVersionId,
 				contentText: input.contentText,
 				anchorJson: input.anchorJson,
 				kind: 'comment',
@@ -58,6 +60,7 @@ export function createMobileArtifactCommentV2Actions(
 			const response = await api.comments.create({
 				id: input.id,
 				artifactId: input.artifactId,
+				artifactVersionId: input.artifactVersionId,
 				contentText: input.contentText,
 				replyToCommentId: input.rootCommentId,
 			})
@@ -112,7 +115,7 @@ export function createMobileArtifactCommentV2Actions(
 		},
 	})
 
-	const resolveBatch = async (input: { artifactId: string; rootCommentIds: string[] }) => {
+	const resolveBatch = async (input: { artifactId: string; artifactVersionId: string; rootCommentIds: string[] }) => {
 		const response = await api.comments.resolveBatch(input)
 		await artifactCommentsConfirmTx(response.transactionId)
 		return response
@@ -151,6 +154,7 @@ function baseRow(input: MobileV2Identity & { id: string; contentText: string }):
 		task_id: input.taskId,
 		...userAuthoredCommentColumns(input.createdByUserId),
 		created_at_artifact_version_id: null,
+		viewed_version_verified: false,
 		resolved_by_user_id: null,
 		created_by_agent: false,
 	}

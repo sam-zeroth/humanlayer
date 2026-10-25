@@ -8,7 +8,10 @@ import viteReact from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type PluginOption } from 'vite'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/+$/, '')
-const env = { ...loadEnv(process.env.NODE_ENV ?? 'development', repoRoot, ''), ...process.env }
+const env =
+	process.env.LOCAL_SURFACE === '1'
+		? { ...process.env }
+		: { ...loadEnv(process.env.NODE_ENV ?? 'development', repoRoot, ''), ...process.env }
 const isElectronPackageBuild = env.RIPTIDE_ELECTRON_PACKAGE_BUILD === 'true'
 
 const electronContentSecurityPolicy = [
@@ -40,7 +43,38 @@ const sentryOrg = process.env.SENTRY_ORG
 const sentryProject = process.env.SENTRY_PROJECT
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
 
+const localSurface = env.VITE_LOCAL_SURFACE === '1'
+if (localSurface !== (env.LOCAL_SURFACE === '1')) throw new Error('Local UI and server modes must match')
+const localPlugins: PluginOption[] = []
+if (localSurface)
+	localPlugins.push({
+		name: 'local-fonts-only',
+		enforce: 'pre',
+		transform(code: string, id: string) {
+			if (!id.endsWith('/styles/globals.css')) return
+			return code
+				.split('\n')
+				.filter((line) => !line.includes('@import url("https://fonts.googleapis.com/'))
+				.join('\n')
+		},
+	})
+const devtoolPlugins: PluginOption[] = []
+if (!localSurface)
+	devtoolPlugins.push(devtools({ eventBusConfig: { port: Number(env.RIPTIDE_UI_TANSTACK_DEVTOOLS_PORT) || 42070 } }))
+const aliases = [{ find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) }]
+if (localSurface)
+	aliases.push(
+		{
+			find: '@workos-inc/authkit-react',
+			replacement: fileURLToPath(new URL('./src/integrations/workos/local-auth.tsx', import.meta.url)),
+		},
+		{
+			find: 'react-scan',
+			replacement: fileURLToPath(new URL('./src/lib/react-scan-disabled.ts', import.meta.url)),
+		},
+	)
 const plugins: PluginOption[] = [
+	...localPlugins,
 	{
 		name: 'electron-content-security-policy',
 		transformIndexHtml: {
@@ -66,11 +100,7 @@ const plugins: PluginOption[] = [
 	// TanStack devtools starts an event bus server on port 42069 by default.
 	// Use a unique port to avoid conflicts with other vite servers (e.g. storybook).
 	// See also: .storybook/main.ts which uses port 42071
-	devtools({
-		eventBusConfig: {
-			port: Number(env.RIPTIDE_UI_TANSTACK_DEVTOOLS_PORT) || 42070,
-		},
-	}),
+	...devtoolPlugins,
 	tanstackRouter({
 		target: 'react',
 		autoCodeSplitting: true,
@@ -110,9 +140,7 @@ export default defineConfig({
 	plugins,
 	resolve: {
 		dedupe: ['react', 'react-dom'],
-		alias: {
-			'@': fileURLToPath(new URL('./src', import.meta.url)),
-		},
+		alias: aliases,
 	},
 	server: {
 		host: '127.0.0.1',
@@ -132,5 +160,5 @@ export default defineConfig({
 		// module workers; the default iife format rejects code-splitting.
 		format: 'es',
 	},
-	envDir: '../../',
+	envDir: localSurface ? false : '../../',
 })

@@ -85,7 +85,7 @@ describe('artifact versioning test', async () => {
 					.from(artifactVersions)
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
-				expect(versions.length).toBe(1)
+				expect(versions.length).toBe(2)
 			})
 
 			test('Test 65: Version contains PREVIOUS content (before update)', async () => {
@@ -369,9 +369,9 @@ describe('artifact versioning test', async () => {
 					.from(artifactVersions)
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
-				expect(versions.length).toBe(2)
+				expect(versions.length).toBe(3)
 				const versionNumbers = versions.map((v) => v.version_number).sort()
-				expect(versionNumbers).toEqual([1, 2])
+				expect(versionNumbers).toEqual([1, 2, 3])
 			})
 
 			test('Test 73: Version numbers are sequential per artifact and each version has correct previous content hash', async () => {
@@ -419,22 +419,19 @@ describe('artifact versioning test', async () => {
 					.from(artifactVersions)
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
-				expect(versions.length).toBe(5)
+				expect(versions.length).toBe(6)
 
 				// Sort versions by version_number to check them in order
 				const sortedVersions = versions.sort((a, b) => a.version_number - b.version_number)
 
 				// Check version numbers are sequential
 				const versionNumbers = sortedVersions.map((v) => v.version_number)
-				expect(versionNumbers).toEqual([1, 2, 3, 4, 5])
+				expect(versionNumbers).toEqual([1, 2, 3, 4, 5, 6])
 
-				// Each version should contain the PREVIOUS content and its hash
-				// Version 1 was created when updating from contents[0] to contents[1], so it should have contents[0]
-				// Version 2 was created when updating from contents[1] to contents[2], so it should have contents[1]
-				// etc.
+				// Every submitted revision, including initial and current, has a snapshot.
 				for (let i = 0; i < sortedVersions.length; i++) {
 					const version = sortedVersions[i]!
-					const expectedContent = contents[i]! // The content BEFORE the update that created this version
+					const expectedContent = contents[i]!
 					const expectedHash = hash(expectedContent)
 
 					expect(version.content).toBe(expectedContent)
@@ -484,7 +481,7 @@ describe('artifact versioning test', async () => {
 					.from(artifactVersions)
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
-				expect(versions.length).toBe(0)
+				expect(versions.length).toBe(1)
 			})
 
 			test('Test 75: Multiple identical updates do not create versions', async () => {
@@ -529,7 +526,7 @@ describe('artifact versioning test', async () => {
 					.from(artifactVersions)
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
-				expect(versions.length).toBe(0)
+				expect(versions.length).toBe(1)
 			})
 		})
 	})

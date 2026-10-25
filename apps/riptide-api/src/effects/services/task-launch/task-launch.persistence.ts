@@ -7,6 +7,7 @@ import { and, eq } from 'drizzle-orm'
 import { Clock, Effect } from 'effect'
 import { hash } from 'ohash'
 
+import { snapshotTaskArtifacts } from '../../../db/artifact-snapshots'
 import { createSessionForLaunch } from '../../../db/create-session-for-launch'
 import { resolveOrgDefaultTaskShareLevel } from '../../../db/organization-settings'
 import { activeTaskSlugIsAllocated, lockActiveTaskSlugAllocation } from '../../../db/task-slug-allocation'
@@ -346,6 +347,7 @@ export const launchTaskDraftPersistence = Effect.fn('task_launch.persistence.lau
 					labels: taskIntentLabels(input.intent),
 				}),
 			)
+			yield* tx.run(() => snapshotTaskArtifacts(tx.client, task.id))
 			const transactionId = yield* getTransactionId(tx)
 			yield* tx.query(
 				tx.client.insert(taskLaunches).values({

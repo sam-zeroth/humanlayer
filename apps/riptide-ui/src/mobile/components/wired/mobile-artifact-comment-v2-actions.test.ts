@@ -91,6 +91,7 @@ describe('mobile V2 optimistic comment rows', () => {
 			task_id: 'task-1',
 			...userAuthoredCommentColumns('user-1'),
 			created_at_artifact_version_id: null,
+			viewed_version_verified: false,
 			resolved_by_user_id: null,
 			created_by_agent: false,
 		})

@@ -13,6 +13,7 @@ import { upsertArtifactProcedure } from '../../src/orpc/daemon/artifacts/upsert'
 import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMockDaemonContext } from '../mocks'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -121,7 +122,12 @@ describe('api/comments/create — V2 typed kind persistence', () => {
 	test('defaults to the comment kind when omitted', async () => {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'A normal comment', anchorJson: wholeBlockAnchor },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'A normal comment',
+				anchorJson: wholeBlockAnchor,
+			},
 			{ context: makeContext() },
 		)
 		expect(result.success).toBe(true)
@@ -132,7 +138,13 @@ describe('api/comments/create — V2 typed kind persistence', () => {
 	test('persists an instant deletion verdict at a whole-block anchor', async () => {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Delete this', anchorJson: wholeBlockAnchor, kind: 'deletion' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Delete this',
+				anchorJson: wholeBlockAnchor,
+				kind: 'deletion',
+			},
 			{ context: makeContext() },
 		)
 		const row = await readRow(result.commentId)
@@ -148,7 +160,13 @@ describe('api/comments/create — V2 typed kind persistence', () => {
 	test('persists an instant approval verdict at a precise range anchor', async () => {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Looks good', anchorJson: rangeAnchor, kind: 'approval' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Looks good',
+				anchorJson: rangeAnchor,
+				kind: 'approval',
+			},
 			{ context: makeContext() },
 		)
 		const row = await readRow(result.commentId)
@@ -161,7 +179,13 @@ describe('api/comments/create — V2 typed kind persistence', () => {
 		await expect(
 			call(
 				createCommentProcedure,
-				{ artifactId, contentText: 'Bad kind', anchorJson: wholeBlockAnchor, kind: 'redline' as never },
+				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
+					artifactId,
+					contentText: 'Bad kind',
+					anchorJson: wholeBlockAnchor,
+					kind: 'redline' as never,
+				},
 				{ context: makeContext() },
 			),
 		).rejects.toThrow()
@@ -171,7 +195,13 @@ describe('api/comments/create — V2 typed kind persistence', () => {
 		await expect(
 			call(
 				createCommentProcedure,
-				{ artifactId, contentText: 'Should fail - no access', anchorJson: wholeBlockAnchor, kind: 'deletion' },
+				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
+					artifactId,
+					contentText: 'Should fail - no access',
+					anchorJson: wholeBlockAnchor,
+					kind: 'deletion',
+				},
 				{ context: makeContext(otherUserId) },
 			),
 		).rejects.toThrow()

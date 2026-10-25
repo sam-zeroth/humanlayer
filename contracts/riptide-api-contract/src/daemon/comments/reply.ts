@@ -5,6 +5,7 @@ import { contractBuilder } from '../../contract-builder'
 export const ReplyCommentInputSchema = z.object({
 	taskId: z.uuid(),
 	artifactFilename: z.string(),
+	artifactVersionId: z.uuid().optional(),
 	truncatedCommentId: z.string().min(8).max(12).describe('Truncated ID of comment to reply to'),
 	contentText: z.string().min(1).describe('Reply text content (markdown supported)'),
 })

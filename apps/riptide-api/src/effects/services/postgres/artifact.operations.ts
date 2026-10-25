@@ -25,6 +25,7 @@ export function updateArtifactForS3Storage(
 				.update(artifacts)
 				.set({
 					storage_type: 's3',
+					current_version_id: null,
 					s3_key: params.s3Key,
 					content: '',
 					content_hash: params.contentHash,
@@ -71,6 +72,7 @@ export function insertS3Artifact(
 					content_type: params.contentType,
 					file_size_bytes: BigInt(params.fileSizeBytes),
 					storage_type: 's3',
+					current_version_id: null,
 					s3_key: params.s3Key,
 					resource_owner_user_id: params.resourceOwnerUserId,
 					organization_id: params.organizationId,

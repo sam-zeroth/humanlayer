@@ -32,6 +32,7 @@ import { useHoverCardStore } from '@/hooks/stores/hoverCardStore'
 import { useDiffFullscreenDialogOpen } from '@/hooks/stores/taskDiffReviewStore'
 import { useMountEffect } from '@/hooks/useMountEffect'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
+import { useViewedArtifactVersion } from '@/hooks/useViewedArtifactVersion'
 import { SentryErrorBoundary } from '@/integrations/sentry/SentryErrorBoundary'
 import type { WiredArtifactViewerMode } from '@/lib/artifact-viewer-mode'
 
@@ -118,6 +119,7 @@ function WiredLegacyArtifactViewer({
 	mode: _mode,
 	...viewerProps
 }: WiredArtifactViewerProps) {
+	const artifactVersionId = useViewedArtifactVersion(artifactId, viewerProps.content)
 	const { artifactCommentsCollection } = useSync()
 	const diffFullscreenOpen = useDiffFullscreenDialogOpen()
 	const { membersMap } = useOrgMembers()
@@ -713,6 +715,7 @@ function WiredLegacyArtifactViewer({
 						>
 							{panelThreads.map(({ thread, isOutdated }) => (
 								<WiredCommentThread
+									artifactVersionId={artifactVersionId}
 									key={thread.root.id}
 									thread={thread}
 									artifactFilename={viewerProps.fileName}
@@ -722,6 +725,7 @@ function WiredLegacyArtifactViewer({
 							))}
 							{pendingCommentAnchor ? (
 								<WiredNewCommentForm
+									artifactVersionId={artifactVersionId}
 									key={NEW_COMMENT_KEY}
 									artifactId={artifactId}
 									taskId={taskId}
@@ -771,6 +775,7 @@ function WiredLegacyArtifactViewer({
 				>
 					<div className="w-[30rem] max-h-96 overflow-auto shadow-lg bg-popover rounded-md border border-border outline outline-2 outline-accent">
 						<WiredCommentThread
+							artifactVersionId={artifactVersionId}
 							thread={activeThread}
 							artifactFilename={viewerProps.fileName}
 							onCollapse={() => hideNow()}
@@ -795,6 +800,7 @@ function WiredLegacyArtifactViewer({
 				>
 					<div className="bg-popover border border-border rounded-md shadow-lg w-[30rem] outline outline-2 outline-accent [&_textarea]:max-h-[var(--textarea-max-h)]">
 						<WiredNewCommentForm
+							artifactVersionId={artifactVersionId}
 							artifactId={artifactId}
 							taskId={taskId}
 							resourceOwnerUserId={resourceOwnerUserId}

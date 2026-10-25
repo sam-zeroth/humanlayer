@@ -209,6 +209,7 @@ describe('artifact version reads', () => {
 			expect(result.latest).toEqual({
 				kind: 'latest',
 				id: 'latest',
+				currentVersionId: null,
 				label: 'Latest',
 				contentHash: hash('latest content'),
 				createdAt: 3000,

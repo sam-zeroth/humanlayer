@@ -15,6 +15,7 @@ import { Effect } from 'effect'
 import { hash } from 'ohash'
 import { uuidv7 } from 'uuidv7'
 
+import { snapshotTaskArtifacts } from '../../../db/artifact-snapshots'
 import { createSessionForLaunch } from '../../../db/create-session-for-launch'
 import { getTxId } from '../../../db/get-tx-id'
 import { validateHostOwnership } from '../../../db/host-auth'
@@ -742,6 +743,8 @@ export const createTaskProcedure = apiBaseOrgRequired.tasks.create
 						permissionsMode: firstSession.permissionsMode,
 					})
 				}
+
+				await snapshotTaskArtifacts(tx, result.id)
 
 				return {
 					result: 'created' as const,

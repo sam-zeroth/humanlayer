@@ -128,7 +128,7 @@ describe('artifact upsert Slack dispatch', () => {
 				),
 			)
 
-			expect(updateResult).toMatchObject({ created: false, artifactId: result.artifactId, versionNumber: 1 })
+			expect(updateResult).toMatchObject({ created: false, artifactId: result.artifactId, versionNumber: 2 })
 			yield* settleDetachedEffects
 			expect(dispatchedEvents).toHaveLength(1)
 		})
@@ -197,7 +197,7 @@ describe('artifact upsert Slack dispatch', () => {
 				),
 			)
 
-			expect(updateResult).toMatchObject({ created: false, artifactId: result.artifactId, versionNumber: 1 })
+			expect(updateResult).toMatchObject({ created: false, artifactId: result.artifactId, versionNumber: 2 })
 			yield* settleDetachedEffects
 			expect(dispatchedEvents).toHaveLength(1)
 		})

@@ -30,6 +30,7 @@ import {
 } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -202,6 +203,7 @@ describe('shared artifact comment reads', () => {
 		await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				id: commentId,
@@ -251,11 +253,13 @@ describe('shared artifact comment reads', () => {
 	})
 
 	test('stores every public comment as a guest, even from a signed-in caller', async () => {
+		const viewedVersionId = await viewedArtifactVersion(db, artifactId)
 		const guestId = uuidv7()
 		const guestCommentId = uuidv7()
 		await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: viewedVersionId,
 				artifactId,
 				shareKey,
 				id: guestCommentId,
@@ -289,7 +293,8 @@ describe('shared artifact comment reads', () => {
 			anonymous_author_id: guestId,
 			anonymous_guest_name: 'Grace Hopper',
 			created_via_public_share: true,
-			created_at_artifact_version_id: currentVersionId,
+			created_at_artifact_version_id: viewedVersionId,
+			viewed_version_verified: true,
 		})
 		expect(guest).toMatchObject({ display_name: 'Grace Hopper', email: 'grace@example.test' })
 
@@ -298,6 +303,7 @@ describe('shared artifact comment reads', () => {
 		const signed = await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: viewedVersionId,
 				artifactId,
 				shareKey,
 				id: signedCommentId,
@@ -332,6 +338,7 @@ describe('shared artifact comment reads', () => {
 	test('rejects guest identity mutation and view-only capabilities', async () => {
 		const guestId = uuidv7()
 		const input = {
+			artifactVersionId: await viewedArtifactVersion(db, artifactId),
 			artifactId,
 			shareKey,
 			contentText: 'First identity use',
@@ -359,6 +366,7 @@ describe('shared artifact comment reads', () => {
 	})
 
 	test('attaches a reply to the root, reopens the whole thread, and records the version', async () => {
+		const viewedVersionId = await viewedArtifactVersion(db, artifactId)
 		const memberId = uuidv7()
 		await db.insert(artifactComments).values({
 			id: memberId,
@@ -378,6 +386,7 @@ describe('shared artifact comment reads', () => {
 		await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: viewedVersionId,
 				artifactId,
 				shareKey,
 				rootCommentId: memberId,
@@ -403,7 +412,8 @@ describe('shared artifact comment reads', () => {
 			reply_to_comment_id: currentCommentId,
 			anchor_json: null,
 			kind: 'comment',
-			created_at_artifact_version_id: currentVersionId,
+			created_at_artifact_version_id: viewedVersionId,
+			viewed_version_verified: true,
 		})
 	})
 
@@ -417,6 +427,7 @@ describe('shared artifact comment reads', () => {
 		const created = await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				rootCommentId: currentCommentId,
@@ -461,6 +472,7 @@ describe('shared artifact comment reads', () => {
 		const root = await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				id: rootId,
@@ -473,6 +485,7 @@ describe('shared artifact comment reads', () => {
 		await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				rootCommentId: rootId,
@@ -499,6 +512,7 @@ describe('shared artifact comment reads', () => {
 		const expired = await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				rootCommentId: currentCommentId,
@@ -530,6 +544,7 @@ describe('shared artifact comment reads', () => {
 		const created = await call(
 			bindProcedureToRuntime(liveCreate, runtime),
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				shareKey,
 				rootCommentId: currentCommentId,
@@ -549,6 +564,7 @@ describe('shared artifact comment reads', () => {
 				call(
 					bindProcedureToRuntime(liveCreate, runtime),
 					{
+						artifactVersionId: await viewedArtifactVersion(db, artifactId),
 						artifactId,
 						shareKey,
 						rootCommentId: currentCommentId,
@@ -583,6 +599,7 @@ describe('shared artifact comment reads', () => {
 			await call(
 				bindProcedureToRuntime(liveCreate, runtime),
 				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
 					artifactId,
 					shareKey,
 					contentText: `Rate comment ${index}`,
@@ -596,6 +613,7 @@ describe('shared artifact comment reads', () => {
 			call(
 				bindProcedureToRuntime(liveCreate, runtime),
 				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
 					artifactId,
 					shareKey,
 					contentText: 'One too many',

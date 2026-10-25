@@ -14,7 +14,15 @@ import { useSharedArtifactCommentsCollection } from './useSharedArtifactComments
  * the public API, and guest writes with optimistic rows. Guests
  * reply and comment but do not resolve, delete or send feedback to the agent.
  */
-export function useShareLinkArtifactReview({ artifactId, shareKey }: { artifactId: string; shareKey: string }) {
+export function useShareLinkArtifactReview({
+	artifactId,
+	shareKey,
+	viewedVersion,
+}: {
+	artifactId: string
+	shareKey: string
+	viewedVersion?: { id: string; content: string }
+}) {
 	const commentsCollection = useSharedArtifactCommentsCollection({ artifactId, shareKey })
 	const guestIdentity = useGuestArtifactIdentity(artifactId, shareKey)
 	const { queryClient: api } = useRiptideApi()
@@ -43,6 +51,7 @@ export function useShareLinkArtifactReview({ artifactId, shareKey }: { artifactI
 	const commentRows = (commentsQuery.data ?? []) as ArtifactCommentProjectionRow[]
 
 	const review: ArtifactReview = {
+		viewedVersion,
 		rows: [...commentRows, ...mutations.optimisticRows],
 		authors,
 		commentsReady: commentsQuery.isReady,

@@ -5,6 +5,7 @@ import type { AnchorV2, CommentKind } from '../anchor/types'
 export interface CreateV2CommentInput {
 	id: string
 	artifactId: string
+	artifactVersionId?: string
 	contentText: string
 	contentJson?: ArtifactComment['content_json']
 	anchorJson: AnchorV2
@@ -33,6 +34,7 @@ export interface CreateV2CommentInput {
 export interface CreateV2ReplyInput {
 	id: string
 	artifactId: string
+	artifactVersionId?: string
 	rootCommentId: string
 	contentText: string
 	/** Task scope; see {@link CreateV2CommentInput}. */
@@ -60,7 +62,7 @@ export function requireTaskScope(
 export interface V2CommentPersistenceAdapter<Response extends { transactionId: string }> {
 	insert: (row: ArtifactComment) => void
 	persist: (
-		input: Pick<CreateV2CommentInput, 'id' | 'artifactId' | 'contentText' | 'contentJson' | 'anchorJson' | 'kind'>,
+		input: Pick<CreateV2CommentInput, 'id' | 'artifactId' | 'artifactVersionId' | 'contentText' | 'contentJson' | 'anchorJson' | 'kind'>,
 	) => Promise<Response>
 	confirm: (transactionId: string) => Promise<unknown>
 	now?: () => number
@@ -95,7 +97,8 @@ export function createV2CommentPersistence<Response extends { transactionId: str
 				anonymous_author_id: null,
 				anonymous_guest_name: null,
 				created_via_public_share: false,
-				created_at_artifact_version_id: null,
+				created_at_artifact_version_id: input.artifactVersionId ?? null,
+				viewed_version_verified: false,
 				resolved_by_user_id: null,
 				created_by_agent: false,
 			})

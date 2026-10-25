@@ -3,7 +3,7 @@ import { BillingKvService, BillingKvServiceLive } from '@humanlayer/billing/bill
 import { makeRedisLive, RedisService } from '@humanlayer/billing/redis'
 import type { RedisInitializationError } from '@humanlayer/billing/redis'
 import * as EffectSentry from '@sentry/effect/server'
-import { Config, Crypto, ManagedRuntime } from 'effect'
+import { Config, Effect, Crypto, ManagedRuntime } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import type { HttpClient } from 'effect/http/HttpClient'
 import * as Layer from 'effect/Layer'
@@ -46,7 +46,7 @@ import { ResendServiceWithFetchHttpClientLive } from './services/resend/resend-s
 import { type ResendService } from './services/resend/resend.service'
 import { type S3, S3Live } from './services/s3/s3.service'
 import {
-	type SessionTitleGeneration,
+	SessionTitleGeneration,
 	SessionTitleGenerationLive,
 } from './services/session-title-generation/session-title-generation.service'
 import { type SlackService, SlackServiceLive } from './services/slack/slack.service'
@@ -58,7 +58,7 @@ import {
 	TaskDiffServiceLive,
 } from './services/task-diff-durable-streams/task-diff-durable-streams.service'
 import {
-	type TaskIntentClassifier,
+	TaskIntentClassifier,
 	TaskIntentClassifierLive,
 } from './services/task-intent-classifier/task-intent-classifier.service'
 import { TaskLaunchServiceLive } from './services/task-launch/task-launch.live'
@@ -184,8 +184,14 @@ export const AppRuntimeLive = Layer.mergeAll(
 	BillingCheckoutCompletionServiceLive.pipe(Layer.orDie),
 	ExperimentAnalyticsServiceLive.pipe(Layer.orDie),
 	TaskLaunchServiceLive,
-	TaskIntentClassifierLive,
-	SessionTitleGenerationLive,
+	process.env.LOCAL_SURFACE === '1'
+		? Layer.succeed(TaskIntentClassifier, {
+				classify: () => Effect.die(new Error('Task classification is unavailable in local mode')),
+			})
+		: TaskIntentClassifierLive,
+	process.env.LOCAL_SURFACE === '1'
+		? Layer.succeed(SessionTitleGeneration, { scheduleGeneration: () => Effect.void })
+		: SessionTitleGenerationLive,
 	CommentServicesLive,
 ).pipe(Layer.provideMerge(CoreServiceLive))
 

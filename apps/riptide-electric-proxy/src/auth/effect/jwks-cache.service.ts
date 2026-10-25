@@ -6,9 +6,8 @@ import { Context, Duration, Effect, Layer, Ref, Schedule } from 'effect'
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 import { importJWK } from 'jose'
 
-import { Sentry } from '@/lib/effect/sentry.service'
-import { logger } from '@/lib/logger'
-
+import { Sentry } from '../../lib/effect/sentry.service'
+import { logger } from '../../lib/logger'
 import {
 	JWKSFetchError,
 	JWKSFetchTimeoutError,

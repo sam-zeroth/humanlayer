@@ -1,15 +1,14 @@
 import { checkIfDesignDocHasOpenQuestions } from '@humanlayer/ai/design-doc-open-questions'
 import { artifactOperationsLog } from '@humanlayer/db/tables/artifact-operations-log'
-import { artifactVersions } from '@humanlayer/db/tables/artifact-versions'
 import { artifacts } from '@humanlayer/db/tables/artifacts'
 import { sessions } from '@humanlayer/db/tables/sessions'
 import { and, eq, sql } from 'drizzle-orm'
 import { Clock, Effect } from 'effect'
 import { hash } from 'ohash'
 
+import { lockArtifactTask, snapshotArtifact } from '../../../db/artifact-snapshots'
 import { mapPostgresErrorToResponse } from '../../../effects/services/postgres/error-mapping'
 import { getTransactionId, requireTaskEditPermission } from '../../../effects/services/postgres/helpers'
-import type { PostgresTransaction } from '../../../effects/services/postgres/postgres-db.service'
 import { PostgresDb } from '../../../effects/services/postgres/postgres-db.service'
 import { SlackService } from '../../../effects/services/slack/slack.service'
 import { Sentry } from '../../../instrument'
@@ -40,6 +39,7 @@ export const upsertApiArtifactProcedure = effectOrpcBaseOrganizationRequired.art
 		const upsertResult = yield* postgres
 			.transaction((tx) =>
 				Effect.gen(function* () {
+					yield* tx.run(() => lockArtifactTask(tx.client, taskId))
 					const task = yield* requireTaskEditPermission(tx, { taskId, userId, organizationId })
 
 					const taskSlug = task.slug ?? ''
@@ -59,21 +59,8 @@ export const upsertApiArtifactProcedure = effectOrpcBaseOrganizationRequired.art
 
 					if (existingArtifact) {
 						artifactId = existingArtifact.id
-						const contentChanged = existingArtifact.content_hash !== contentHash
-
-						if (contentChanged) {
-							newVersionNumber = yield* createArtifactVersion(tx, {
-								artifactId,
-								taskId,
-								taskSlug,
-								resourceOwnerUserId,
-								organizationId,
-								previousContent: existingArtifact.content ?? '',
-								previousContentHash: existingArtifact.content_hash ?? '',
-								createdByUserId: userId,
-							})
-						}
-
+						if (!existingArtifact.current_version_id)
+							yield* tx.run(() => snapshotArtifact(tx.client, artifactId))
 						yield* tx.query(
 							tx.client
 								.update(artifacts)
@@ -112,6 +99,9 @@ export const upsertApiArtifactProcedure = effectOrpcBaseOrganizationRequired.art
 						artifactId = insertedArtifact.id
 						wasCreated = true
 					}
+
+					const snapshot = yield* tx.run(() => snapshotArtifact(tx.client, artifactId))
+					newVersionNumber = snapshot?.created ? snapshot.versionNumber : undefined
 
 					if (operationType && operationContents) {
 						yield* tx.query(
@@ -228,47 +218,3 @@ export const upsertApiArtifactProcedure = effectOrpcBaseOrganizationRequired.art
 			}),
 		)
 	})
-
-/**
- * Creates a version snapshot of an artifact before updating it.
- * Returns the new version number.
- */
-function createArtifactVersion(
-	tx: PostgresTransaction,
-	params: {
-		artifactId: string
-		taskId: string
-		taskSlug: string
-		resourceOwnerUserId: string
-		organizationId: string
-		previousContent: string
-		previousContentHash: string
-		createdByUserId: string
-	},
-) {
-	return Effect.gen(function* () {
-		const [maxVersionRow] = yield* tx.query(
-			tx.client
-				.select({ maxVersion: sql<number>`MAX(version_number)` })
-				.from(artifactVersions)
-				.where(eq(artifactVersions.artifact_id, params.artifactId)),
-		)
-		const nextVersionNumber = (maxVersionRow?.maxVersion ?? 0) + 1
-
-		yield* tx.query(
-			tx.client.insert(artifactVersions).values({
-				artifact_id: params.artifactId,
-				task_id: params.taskId,
-				task_slug: params.taskSlug,
-				resource_owner_user_id: params.resourceOwnerUserId,
-				organization_id: params.organizationId,
-				content: params.previousContent,
-				content_hash: params.previousContentHash,
-				created_by: params.createdByUserId,
-				version_number: nextVersionNumber,
-			}),
-		)
-
-		return nextVersionNumber
-	})
-}

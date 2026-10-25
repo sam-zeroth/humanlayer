@@ -8,6 +8,7 @@ import { createArtifactCommentV2Actions } from '@/components/artifact-viewer-v2/
 import { useSync, useSyncInternal } from '@/components/providers/SyncProvider'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useUserInfo } from '@/hooks/useUserInfo'
+import { useViewedArtifactVersion } from '@/hooks/useViewedArtifactVersion'
 import { memberName } from '@/minimalist/lib/access'
 import type { CommentPerson } from '@/minimalist/lib/people'
 import { useUi } from '@/minimalist/lib/ui-state'
@@ -18,7 +19,12 @@ import { useRiptideApi } from '@/orpc/client'
  * interfaces show the same threads. Changes show at once; one that fails to save is undone and
  * says so. A comment or reply that fails offers its text back, since the box has closed.
  */
-export function useDocComments(task: Pick<Task, 'id' | 'resource_owner_user_id'>, artifactId: string) {
+export function useDocComments(
+	task: Pick<Task, 'id' | 'resource_owner_user_id'>,
+	artifactId: string,
+	content?: string | null,
+) {
+	const artifactVersionId = useViewedArtifactVersion(artifactId, content)
 	const { client } = useRiptideApi()
 	const { artifactCommentsCollection } = useSync()
 	const { confirmTx } = useSyncInternal()
@@ -47,10 +53,11 @@ export function useDocComments(task: Pick<Task, 'id' | 'resource_owner_user_id'>
 		userId,
 		/** Saves a comment on the anchored text. False when your account hasn't loaded, so nothing was saved. */
 		create: (anchor: AnchorV2, text: string) => {
-			if (!scope) return false
+			if (!scope || !artifactVersionId) return false
 			const saving = actions.createComment({
 				id: uuidv7(),
 				artifactId,
+				artifactVersionId,
 				contentText: text,
 				anchorJson: anchor,
 				kind: 'comment',
@@ -61,10 +68,11 @@ export function useDocComments(task: Pick<Task, 'id' | 'resource_owner_user_id'>
 		},
 		/** Replies under a thread's first comment. False when your account hasn't loaded. */
 		reply: (rootId: string, text: string) => {
-			if (!scope) return false
+			if (!scope || !artifactVersionId) return false
 			const saving = actions.createReply({
 				id: uuidv7(),
 				artifactId,
+				artifactVersionId,
 				rootCommentId: rootId,
 				contentText: text,
 				...scope,

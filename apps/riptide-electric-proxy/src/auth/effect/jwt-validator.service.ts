@@ -2,9 +2,10 @@ import {
 	parseWorkOsAccessTokenClaims,
 	type WorkOsAccessTokenClaims,
 } from '@humanlayer/schemas/effect/workos-access-token'
-import { Context, Effect, Layer } from 'effect'
+import { Config, Context, Effect, Layer } from 'effect'
 import { decodeJwt, decodeProtectedHeader, jwtVerify } from 'jose'
 
+import { localAuthConfig, LOCAL_USER_ID, LOCAL_ORG_ID, LOCAL_WORKOS_ORG_ID } from '../../../../../local-factory/config'
 import {
 	type JWKSKeyNotFoundError,
 	type JWKSNotReadyError,
@@ -85,6 +86,17 @@ const claimsToAuthContext = (claims: WorkOsAccessTokenClaims) => {
 export const JWTValidatorLive = Layer.effect(
 	JWTValidator,
 	Effect.gen(function* () {
+		const localEnvironment = yield* Config.all({
+			LOCAL_SURFACE: Config.String('LOCAL_SURFACE').pipe(Config.withDefault('0')),
+			LOCAL_IDENTITY_ORIGIN: Config.String('LOCAL_IDENTITY_ORIGIN').pipe(
+				Config.withDefault('http://127.0.0.1:55801'),
+			),
+			LOCAL_BROWSER_ORIGIN: Config.String('LOCAL_BROWSER_ORIGIN').pipe(
+				Config.withDefault('https://127.0.0.1:55813'),
+			),
+		}).pipe(Effect.orDie)
+		const localConfig = localEnvironment.LOCAL_SURFACE === '1' ? localAuthConfig(localEnvironment) : undefined
+
 		const jwksCache = yield* JWKSCache
 
 		return {
@@ -104,7 +116,19 @@ export const JWTValidatorLive = Layer.effect(
 					)
 
 					const { payload } = yield* Effect.tryPromise({
-						try: () => jwtVerify(token, key, { issuer }),
+						try: () =>
+							jwtVerify(
+								token,
+								key,
+								localConfig !== undefined
+									? {
+											issuer: localConfig.issuer,
+											audience: localConfig.audience,
+											algorithms: ['RS256'],
+											requiredClaims: ['exp', 'iat', 'sub', 'aud', 'iss'],
+										}
+									: { issuer },
+							),
 						catch: (error) => new JWTVerificationError({ cause: String(error) }),
 					})
 
@@ -116,6 +140,14 @@ export const JWTValidatorLive = Layer.effect(
 							}),
 					})
 
+					if (
+						localConfig !== undefined &&
+						(claims.sub !== LOCAL_USER_ID ||
+							claims.internal_org_id !== LOCAL_ORG_ID ||
+							claims.org_id !== LOCAL_WORKOS_ORG_ID ||
+							claims.act !== undefined)
+					)
+						return yield* Effect.fail(new JWTVerificationError({ cause: 'Local identity does not match' }))
 					return yield* claimsToAuthContext(claims)
 				}),
 		}

@@ -14,6 +14,7 @@ import { upsertArtifactProcedure } from '../../src/orpc/daemon/artifacts/upsert'
 import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMockDaemonContext } from '../mocks'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -85,6 +86,7 @@ describe('api/comments/resolve', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText,
 				...(replyToCommentId ? { replyToCommentId } : {}),

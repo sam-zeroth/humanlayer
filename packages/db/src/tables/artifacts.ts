@@ -36,6 +36,9 @@ export const artifacts = pgTable(
 		// Computed server-side using hash(content) from ohash on create/update
 		content_hash: text('content_hash').notNull(),
 
+		// Immutable text revision paired with content. Null for legacy/binary rows.
+		current_version_id: uuid('current_version_id'),
+
 		// Parsed YAML frontmatter stored as JSONB - populated by daemon on upsert
 		frontmatter: jsonb('frontmatter').$type<Record<string, unknown>>().notNull().default({}),
 

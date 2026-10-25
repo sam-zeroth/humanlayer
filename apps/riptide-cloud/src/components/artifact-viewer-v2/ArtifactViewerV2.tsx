@@ -33,6 +33,7 @@ import { useFocusStore } from '@/hooks/stores/focusStore'
 import { useMountEffect } from '@/hooks/useMountEffect'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useUserInfo } from '@/hooks/useUserInfo'
+import { useViewedArtifactVersion } from '@/hooks/useViewedArtifactVersion'
 import { useSync, useSyncInternal } from '@/providers/SyncProvider'
 
 import { ArtifactVersionSelectors } from './ArtifactVersionSelectors'
@@ -206,6 +207,7 @@ function ArtifactViewerV2Composition({
 	versionDiff?: ArtifactVersionDiffView
 	children?: ReactNode
 }) {
+	const viewedVersionId = useViewedArtifactVersion(artifactId, content)
 	const { client } = useRiptideApi()
 	const { artifactCommentsCollection } = useSync()
 	const { confirmTx } = useSyncInternal()
@@ -244,7 +246,17 @@ function ArtifactViewerV2Composition({
 
 	const view = useArtifactController({
 		document: { content, customLanguageRenderers: cloudLanguageRenderers },
-		persistence,
+		persistence: {
+			...persistence,
+			createComment: (input) => {
+				if (!viewedVersionId) throw new Error('Could not add comment. Reload the artifact and try again.')
+				return persistence.createComment({ ...input, artifactVersionId: viewedVersionId }).isPersisted.promise
+			},
+			createReply: (input) => {
+				if (!viewedVersionId) throw new Error('Could not add reply. Reload the artifact and try again.')
+				return persistence.createReply({ ...input, artifactVersionId: viewedVersionId }).isPersisted.promise
+			},
+		},
 		comments: { rows, authors: identityMap },
 		keyboard: {
 			// Cloud renders on the artifact detail route (ARTIFACT_DETAIL scope) and

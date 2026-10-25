@@ -219,7 +219,6 @@ function DocumentView({
 	const { artifact, isLoading } = useArtifactContent(active.id)
 	const taskId = task.id
 	const { artifactCommentsCollection: comments } = useSync()
-	const actions = useDocComments(task, active.id)
 	const authorOf = useCommentAuthor()
 	const agent = useAskAgent(sessionId)
 	const targetSession = useSession(sessionId)
@@ -237,6 +236,7 @@ function DocumentView({
 	// An older version reads like the latest one, without the comment controls.
 	const viewingOld = history.readingId !== null
 	const content = viewingOld ? (history.old?.content ?? '') : (artifact?.content ?? '')
+	const actions = useDocComments(task, active.id, content)
 	const blocks = useMemo(() => splitBlocks(body(content)), [content])
 	const texts = blocks.map(plainText)
 	const headings = headingsOf(blocks)
@@ -261,7 +261,7 @@ function DocumentView({
 	// Until the text arrives every thread looks orphaned; placing the link then would scroll to the wrong spot.
 	const focused = linked && content ? threadOf(open, linked) : undefined
 	const closed = linked !== undefined && !commentsQuery.isLoading && isClosedComment(rows, linked)
-	const doc: DocContext = { task, artifactId: active.id, fileName: active.file_name, sessionId }
+	const doc: DocContext = { task, content, artifactId: active.id, fileName: active.file_name, sessionId }
 	// The words open threads are about, and the ones you picked for the comment you are writing.
 	const drafted = draft?.quote ? anchorSpan(anchors, draft.anchor) : null
 	const spans = viewingOld ? [] : [...open.map((thread) => thread.span), drafted].flatMap((span) => span ?? [])

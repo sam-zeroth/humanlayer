@@ -15,6 +15,7 @@ import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMo
 import { bindProcedureToRuntime, createRuntimeWithTestPostgresLayer } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -101,7 +102,12 @@ describe('api/comments/resolve-batch', () => {
 	async function createRoot(contentText: string, v2 = true) {
 		return call(
 			createCommentProcedure,
-			{ artifactId, contentText, ...(v2 ? { anchorJson: anchor } : {}) },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText,
+				...(v2 ? { anchorJson: anchor } : {}),
+			},
 			{ context: context() },
 		)
 	}
@@ -113,7 +119,12 @@ describe('api/comments/resolve-batch', () => {
 		const legacy = await createRoot('legacy', false)
 		const reply = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'reply', replyToCommentId: first.commentId },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'reply',
+				replyToCommentId: first.commentId,
+			},
 			{ context: context() },
 		)
 

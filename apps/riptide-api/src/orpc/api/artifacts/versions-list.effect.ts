@@ -22,6 +22,7 @@ export const listArtifactVersionsProcedure = effectOrpcBaseOrganizationRequired.
 							.select({
 								taskId: artifacts.task_id,
 								contentHash: artifacts.content_hash,
+								currentVersionId: artifacts.current_version_id,
 								lastUpdatedAt: artifacts.last_updated_at,
 							})
 							.from(artifacts)
@@ -64,19 +65,22 @@ export const listArtifactVersionsProcedure = effectOrpcBaseOrganizationRequired.
 						latest: {
 							kind: 'latest' as const,
 							id: 'latest' as const,
+							currentVersionId: artifact.currentVersionId,
 							label: 'Latest' as const,
 							contentHash: artifact.contentHash,
 							createdAt: Number(artifact.lastUpdatedAt),
 						},
-						archived: archivedRows.map((row) => ({
-							kind: 'archived' as const,
-							id: row.id,
-							label: `Version ${row.versionNumber}`,
-							versionNumber: row.versionNumber,
-							contentHash: row.contentHash,
-							createdAt: Number(row.createdAt),
-							createdBy: row.createdBy,
-						})),
+						archived: archivedRows
+							.filter((row) => row.id !== artifact.currentVersionId)
+							.map((row) => ({
+								kind: 'archived' as const,
+								id: row.id,
+								label: `Version ${row.versionNumber}`,
+								versionNumber: row.versionNumber,
+								contentHash: row.contentHash,
+								createdAt: Number(row.createdAt),
+								createdBy: row.createdBy,
+							})),
 					}
 				}),
 			)

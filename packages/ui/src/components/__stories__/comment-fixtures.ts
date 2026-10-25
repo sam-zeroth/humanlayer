@@ -23,6 +23,7 @@ export function createMockComment(overrides: Partial<ArtifactComment> = {}): Art
 		content_json: null,
 		artifact_id: 'artifact_mock',
 		created_at_artifact_version_id: null,
+		viewed_version_verified: false,
 		commented_upon_block_text: null,
 		previous_block_text: null,
 		next_block_text: null,

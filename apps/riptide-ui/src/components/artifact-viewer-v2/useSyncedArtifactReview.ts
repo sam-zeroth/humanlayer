@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import type { ArtifactCommentsCollection } from '@/collections/electric/artifact-comments'
 import { useArtifactDeliveryCapability } from '@/components/comment-delivery/useArtifactDeliveryCapability'
 import { useSync, useSyncInternal } from '@/components/providers/SyncProvider'
+import { useArtifactContent } from '@/hooks/live-queries/useArtifactContent'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useTaskPermissions } from '@/hooks/useTaskPermissions'
 import { useUserInfo } from '@/hooks/useUserInfo'
@@ -25,6 +26,7 @@ export function useSyncedArtifactReview({
 	taskId: string
 	resourceOwnerUserId: string
 }): ArtifactReview {
+	const { artifact, hasContent } = useArtifactContent(artifactId)
 	const { client } = useRiptideApi()
 	const { artifactCommentsCollection, taskOrganizationAclsCollection, taskUserAclsCollection } = useSync()
 	const { confirmTx } = useSyncInternal()
@@ -83,6 +85,10 @@ export function useSyncedArtifactReview({
 	}
 
 	return {
+		viewedVersion:
+			hasContent && artifact?.current_version_id
+				? { id: artifact.current_version_id, content: artifact.content }
+				: undefined,
 		rows: (commentsQuery.data ?? []) as ArtifactComment[],
 		authors,
 		commentsReady: commentsQuery.isReady,

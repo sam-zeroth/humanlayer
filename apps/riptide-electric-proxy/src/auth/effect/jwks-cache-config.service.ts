@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'effect'
 
-import { WorkosConfig } from '@/auth/effect/workos.service'
+import { WorkosConfig } from './workos.service'
 
 /**
  * This is the config service that will be injected into the JWKS Cache Effect

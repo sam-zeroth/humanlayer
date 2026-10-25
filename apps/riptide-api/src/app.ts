@@ -136,6 +136,11 @@ registerLinearOAuthCallbackRoute(app, { linearService, appRuntime, logger })
 registerSlackOAuthCallbackRoute(app, { appRuntime, logger })
 registerSlackInteractionsRoute(app, { appRuntime, logger })
 
+if (process.env.LOCAL_SURFACE === '1') {
+	const { createLocalFactoryRoutes } = await import('./routes/local-factory')
+	app.route('/factory', createLocalFactoryRoutes())
+}
+
 // mount oRPC handler
 app.use('/rpc/api/v1/*', async (c, next) => {
 	// Get the auth context

@@ -1,3 +1,5 @@
+import { factoryUnits, factoryRequests } from './tables/factory-units'
+export * from './tables/factory-units'
 import { accessRequests } from './tables/access-requests'
 import { aclOperationsLog } from './tables/acl-operations-log'
 import { agentCommandDiscoveryRequests } from './tables/agent-command-discovery-requests'
@@ -111,6 +113,8 @@ export * from './tables/workspace-repository-status-for-user-for-host'
 export * from './tables/workspaces'
 
 export const applicationTables = [
+	factoryUnits,
+	factoryRequests,
 	organizations,
 	organizationSettings,
 	accessRequests,

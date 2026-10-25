@@ -33,7 +33,10 @@ export function createArtifactCommentV2Actions(
 ) {
 	const persistence = createV2CommentPersistence({
 		insert: (row) => artifactCommentsCollection.insert({ ...row, content_json: row.content_json as never }),
-		persist: (params) => api.comments.create(params),
+		persist: (params) => {
+			if (!params.artifactVersionId) throw new Error('Could not add comment. Reload the artifact and try again.')
+			return api.comments.create({ ...params, artifactVersionId: params.artifactVersionId })
+		},
 		confirm: artifactCommentsConfirmTx,
 	})
 	const createComment = createOptimisticAction<CreateV2CommentParams>({
@@ -106,15 +109,18 @@ export function createArtifactCommentV2Actions(
 				resource_owner_user_id: scope.resourceOwnerUserId,
 				task_id: scope.taskId,
 				...userAuthoredCommentColumns(scope.createdByUserId),
-				created_at_artifact_version_id: null,
+				created_at_artifact_version_id: input.artifactVersionId ?? null,
+				viewed_version_verified: false,
 				resolved_by_user_id: null,
 				created_by_agent: false,
 			})
 		},
 		mutationFn: async (input) => {
+			if (!input.artifactVersionId) throw new Error('Could not add reply. Reload the artifact and try again.')
 			const response = await api.comments.create({
 				id: input.id,
 				artifactId: input.artifactId,
+				artifactVersionId: input.artifactVersionId,
 				contentText: input.contentText,
 				replyToCommentId: input.rootCommentId,
 			})

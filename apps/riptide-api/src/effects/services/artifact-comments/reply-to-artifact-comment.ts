@@ -56,6 +56,7 @@ export const replyToArtifactComment = Effect.fn('artifact_comments.reply')(funct
 					},
 					id: input.id,
 					contentText: input.contentText,
+					artifactVersionId: input.artifactVersionId,
 					replyToCommentId: match.id,
 					existingComments: rows,
 					now,

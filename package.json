@@ -41,11 +41,11 @@
     "riptide:build:dev": "turbo run build:dev --filter=@humanlayer/riptide-native",
     "riptide:build:beta": "turbo run build:beta --filter=@humanlayer/riptide-native",
     "riptide:build:prod": "turbo run build:prod --filter=@humanlayer/riptide-native",
-    "lint": "oxlint apps packages contracts",
-    "lint:fix": "oxlint apps packages contracts --fix --quiet",
-    "format": "oxfmt --check 'apps/**/*.ts*' 'packages/**/*.ts*' 'contracts/**/*.ts*'",
-    "format:write": "oxfmt 'apps/**/*.ts*' 'packages/**/*.ts*' 'contracts/**/*.ts*'",
-    "quality": "bun run scripts/run-silent.ts 'quality passed' bash -c 'oxlint --quiet apps packages contracts && bun run format'",
+    "lint": "oxlint apps packages contracts local-factory",
+    "lint:fix": "oxlint apps packages contracts local-factory --fix --quiet",
+    "format": "oxfmt --check 'apps/**/*.ts*' 'packages/**/*.ts*' 'contracts/**/*.ts*' 'local-factory/**/*.ts*'",
+    "format:write": "oxfmt 'apps/**/*.ts*' 'packages/**/*.ts*' 'contracts/**/*.ts*' 'local-factory/**/*.ts*'",
+    "quality": "bun run scripts/run-silent.ts 'quality passed' bash -c 'oxlint --quiet apps packages contracts local-factory && bun run format'",
     "quality:fix": "bun run lint:fix && bun run format:write",
     "check": "bun run typecheck && bun run quality && bun run check:sentry-closures && bun run check:zod",
     "check:sentry-closures": "bun run scripts/check-sentry-closures.ts",
@@ -94,7 +94,8 @@
     "apps/*",
     "contracts/*",
     "packages/*",
-    "vendor/*"
+    "vendor/*",
+    "local-factory"
   ],
   "catalog": {
     "zod": "4.5.4",
@@ -222,5 +223,5 @@
     "prosemirror-view": "1.41.3",
     "fast-xml-parser": ">=5.3.5",
     "protobufjs": ">=7.5.5"
-	}
+  }
 }

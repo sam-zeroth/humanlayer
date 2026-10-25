@@ -15,6 +15,7 @@ export const ArtifactVersionDescriptorSchema = z.object({
 export const LatestArtifactVersionDescriptorSchema = z.object({
 	kind: z.literal('latest'),
 	id: z.literal('latest'),
+	currentVersionId: z.uuid().nullable(),
 	label: z.literal('Latest'),
 	contentHash: z.string(),
 	createdAt: z.number().int().nonnegative(),

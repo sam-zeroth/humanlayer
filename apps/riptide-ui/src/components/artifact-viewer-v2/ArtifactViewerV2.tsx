@@ -63,6 +63,7 @@ import { useCommandPaletteStore } from '@/hooks/stores/commandPaletteStore'
 import { useDiagnosticStore } from '@/hooks/stores/diagnosticStore'
 import { useFocusStore } from '@/hooks/stores/focusStore'
 import { useMountEffect } from '@/hooks/useMountEffect'
+import { useViewedArtifactVersionPair } from '@/hooks/useViewedArtifactVersion'
 import { buildArtifactHeadingLink } from '@/lib/artifact-heading-link'
 import {
 	artifactSidePanelTrace,
@@ -144,6 +145,7 @@ export interface ArtifactReviewDelivery {
  * it from the share-link collections (`useShareLinkArtifactReview`).
  */
 export interface ArtifactReview {
+	viewedVersion?: { id: string; content: string }
 	/** Artifact-scoped rows, unprojected. May include optimistic rows. */
 	rows: ArtifactCommentProjectionRow[]
 	authors: ReadonlyMap<string, CommentProjectionIdentity>
@@ -333,10 +335,24 @@ function ArtifactViewerV2Composition({
 	const renderedActive = viewMode === 'rendered'
 	const controllerEnabled = navigationEnabled && renderedActive
 
+	const viewedVersionId = useViewedArtifactVersionPair(review ? artifactId : null, content, review?.viewedVersion)
+	const underlying = review?.persistence ?? READ_ONLY_PERSISTENCE
+	const versionedPersistence = {
+		...underlying,
+		createComment: (input: Parameters<typeof underlying.createComment>[0]) => {
+			if (!viewedVersionId) throw new Error('Could not add comment. Reload the artifact and try again.')
+			return underlying.createComment({ ...input, artifactVersionId: viewedVersionId })
+		},
+		createReply: (input: Parameters<NonNullable<typeof underlying.createReply>>[0]) => {
+			if (!viewedVersionId || !underlying.createReply)
+				throw new Error('Could not add reply. Reload the artifact and try again.')
+			return underlying.createReply({ ...input, artifactVersionId: viewedVersionId })
+		},
+	}
 	const view = useArtifactController({
 		presentation: displayMode,
 		document: { content, customLanguageRenderers: riptideLanguageRenderers },
-		persistence: review?.persistence ?? READ_ONLY_PERSISTENCE,
+		persistence: versionedPersistence,
 		comments: { rows: review?.rows ?? EMPTY_ROWS, authors: review?.authors ?? EMPTY_AUTHORS },
 		keyboard: {
 			documentScopes: [scope, reviewScope],

@@ -1,6 +1,6 @@
 import { organizations } from '@humanlayer/db/tables/organizations'
 import * as Sentry from '@sentry/node'
-import { DomainDataState, type Organization } from '@workos-inc/node'
+import type { Organization, DomainDataState } from '@workos-inc/node'
 import { and, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 
@@ -77,7 +77,7 @@ export const createOrganizationProcedure = apiBaseNoOrg.auth.user.organizations.
 				domainData:
 					input.domains?.map((domain) => ({
 						domain,
-						state: DomainDataState.Pending,
+						state: 'pending' as DomainDataState,
 					})) ?? [],
 			})
 		} catch (error) {
