@@ -105,7 +105,7 @@ export function WiredFactoryUnitPage({ taskId }: { taskId: string }) {
 	})
 	if (!query.data)
 		return (
-			<main className="p-8">
+			<main className="minimalist-shared p-8">
 				<p role="status">
 					{query.isError ? 'Could not load the unit. Check the local stack and retry.' : 'Loading the unit…'}
 				</p>
@@ -130,7 +130,7 @@ export function WiredFactoryUnitPage({ taskId }: { taskId: string }) {
 	}
 	const stale = query.isError || now - projection.synced_at > 15_000
 	return (
-		<main className="mx-auto w-full max-w-4xl overflow-auto p-6 md:p-10">
+		<main className="minimalist-shared mx-auto w-full max-w-4xl overflow-auto p-6 md:p-10">
 			<a className="underline" href={'/tasks/' + taskId}>
 				Open task documents
 			</a>
