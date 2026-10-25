@@ -42,6 +42,7 @@ export const daemonCreateUploadProcedure = daemonBase.artifacts.createUpload
 					.update(artifacts)
 					.set({
 						storage_type: 's3',
+						current_version_id: null,
 						s3_key: s3Key,
 						content: '',
 						content_hash: contentHash,
@@ -64,6 +65,7 @@ export const daemonCreateUploadProcedure = daemonBase.artifacts.createUpload
 						content_type: contentType,
 						file_size_bytes: BigInt(fileSizeBytes),
 						storage_type: 's3',
+						current_version_id: null,
 						s3_key: s3Key,
 						resource_owner_user_id: resourceOwnerUserId,
 						organization_id: organizationId,

@@ -20,6 +20,7 @@ import {
 } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -118,6 +119,7 @@ describe('ArtifactComments', () => {
 			const artifactComments = yield* ArtifactComments
 			const userInfo = { organizationId, userId, createdByAgent: false }
 			const root = yield* artifactComments.create({
+				artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, artifactId)),
 				artifactId,
 				contentText: 'Artifact feedback',
 				userInfo,
@@ -142,6 +144,7 @@ describe('ArtifactComments', () => {
 		Effect.gen(function* () {
 			const artifactComments = yield* ArtifactComments
 			const humanComment = yield* artifactComments.create({
+				artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, planningArtifactId)),
 				artifactId: planningArtifactId,
 				contentText: 'Human review',
 				userInfo: { organizationId, userId: reviewerUserId, createdByAgent: false },
@@ -154,6 +157,7 @@ describe('ArtifactComments', () => {
 
 			// The writer is null-guarded: a later comment cannot move the earned timestamp.
 			yield* artifactComments.create({
+				artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, planningArtifactId)),
 				artifactId: planningArtifactId,
 				contentText: 'Another review',
 				userInfo: { organizationId, userId: reviewerUserId, createdByAgent: false },
@@ -170,6 +174,7 @@ describe('ArtifactComments', () => {
 					.where(eq(userSettings.user_id, artifactOwnerUserId)),
 			)
 			const ownerRoot = yield* artifactComments.create({
+				artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, planningArtifactId)),
 				artifactId: planningArtifactId,
 				contentText: 'Owner root',
 				userInfo: { organizationId, userId: artifactOwnerUserId, createdByAgent: true },
@@ -243,6 +248,7 @@ describe('ArtifactComments', () => {
 				for (const [index, artifact] of seeded.entries()) {
 					const ownerUserId = `planning-matrix-owner-${index}`
 					const selfComment = yield* artifactComments.create({
+						artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, artifact.id)),
 						artifactId: artifact.id,
 						contentText: 'Owner feedback must not qualify',
 						kind: cases[index]?.kind,
@@ -255,6 +261,7 @@ describe('ArtifactComments', () => {
 					expect(selfComment.postCommitContext.ownerUserId).toBe(userId)
 
 					const crossUserComment = yield* artifactComments.create({
+						artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, artifact.id)),
 						artifactId: artifact.id,
 						contentText: 'Cross-user feedback qualifies',
 						kind: cases[index]?.kind,
@@ -284,6 +291,7 @@ describe('ArtifactComments', () => {
 		Effect.gen(function* () {
 			const artifactComments = yield* ArtifactComments
 			const root = yield* artifactComments.create({
+				artifactVersionId: yield* Effect.promise(() => viewedArtifactVersion(db, planningArtifactId)),
 				artifactId: planningArtifactId,
 				contentText: 'Resolved owner thread',
 				userInfo: { organizationId, userId: artifactOwnerUserId, createdByAgent: false },
@@ -325,6 +333,9 @@ describe('ArtifactComments', () => {
 						)
 						const createFailure = yield* artifactComments
 							.create({
+								artifactVersionId: yield* Effect.promise(() =>
+									viewedArtifactVersion(db, planningArtifactId),
+								),
 								artifactId: planningArtifactId,
 								contentText: 'Root must roll back',
 								userInfo: { organizationId, userId: reviewerUserId, createdByAgent: false },

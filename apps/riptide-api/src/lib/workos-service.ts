@@ -1,7 +1,9 @@
-import { WorkOS } from '@workos-inc/node'
+import type { Invitation, OrganizationMembership, User, UserApiKey, WorkOS as WorkOSClient } from '@workos-inc/node'
+
+const WorkOS = process.env.LOCAL_SURFACE === '1' ? undefined : (await import('@workos-inc/node')).WorkOS
 
 // Extract method types from SDK
-type UserMgmt = WorkOS['userManagement']
+type UserMgmt = WorkOSClient['userManagement']
 
 export type WorkosEvent = {
 	id: string
@@ -30,6 +32,16 @@ export interface IWorkosConfig {
  * Interface containing only the WorkOS methods used by route handlers.
  * Enables mocking in tests without requiring full SDK implementation.
  */
+export interface IdentityPage<T> {
+	data: T[]
+	listMetadata: { before?: string | null; after?: string | null }
+	autoPagination(): Promise<T[]>
+}
+
+type IdentityList<K extends keyof UserMgmt, T> = (
+	...args: Parameters<Extract<UserMgmt[K], (...args: never[]) => unknown>>
+) => Promise<IdentityPage<T>>
+
 export interface WorkosSdkAdapter {
 	config: IWorkosConfig
 	countActiveOrganizationMemberships(workosOrganizationId: string): Promise<number>
@@ -38,13 +50,13 @@ export interface WorkosSdkAdapter {
 	getMembershipWebhookEvent(event: WorkosEvent): WorkosWebhookMembershipEvent | null
 	userManagement: {
 		createUserApiKey: UserMgmt['createUserApiKey']
-		listUserApiKeys: UserMgmt['listUserApiKeys']
+		listUserApiKeys: IdentityList<'listUserApiKeys', UserApiKey>
 		getUser: UserMgmt['getUser']
-		listUsers: UserMgmt['listUsers']
-		listInvitations: UserMgmt['listInvitations']
+		listUsers: IdentityList<'listUsers', User>
+		listInvitations: IdentityList<'listInvitations', Invitation>
 		findInvitationByToken: UserMgmt['findInvitationByToken']
 		acceptInvitation: UserMgmt['acceptInvitation']
-		listOrganizationMemberships: UserMgmt['listOrganizationMemberships']
+		listOrganizationMemberships: IdentityList<'listOrganizationMemberships', OrganizationMembership>
 		getAuthorizationUrl: UserMgmt['getAuthorizationUrl']
 		createOrganizationMembership: UserMgmt['createOrganizationMembership']
 		authenticateWithRefreshToken: UserMgmt['authenticateWithRefreshToken']
@@ -57,20 +69,20 @@ export interface WorkosSdkAdapter {
 		reactivateOrganizationMembership: UserMgmt['reactivateOrganizationMembership']
 	}
 	organizations: {
-		getOrganization: WorkOS['organizations']['getOrganization']
-		createOrganization: WorkOS['organizations']['createOrganization']
-		updateOrganization: WorkOS['organizations']['updateOrganization']
+		getOrganization: WorkOSClient['organizations']['getOrganization']
+		createOrganization: WorkOSClient['organizations']['createOrganization']
+		updateOrganization: WorkOSClient['organizations']['updateOrganization']
 	}
 	organizationDomains: {
-		create: WorkOS['organizationDomains']['createOrganizationDomain']
-		delete: WorkOS['organizationDomains']['deleteOrganizationDomain']
+		create: WorkOSClient['organizationDomains']['createOrganizationDomain']
+		delete: WorkOSClient['organizationDomains']['deleteOrganizationDomain']
 	}
 	adminPortal: {
-		generateLink: WorkOS['adminPortal']['generateLink']
+		generateLink: WorkOSClient['adminPortal']['generateLink']
 	}
 	apiKeys: {
-		createValidation: WorkOS['apiKeys']['createValidation']
-		deleteApiKey: WorkOS['apiKeys']['deleteApiKey']
+		createValidation: WorkOSClient['apiKeys']['createValidation']
+		deleteApiKey: WorkOSClient['apiKeys']['deleteApiKey']
 	}
 }
 
@@ -79,7 +91,7 @@ export interface WorkosSdkAdapter {
  * Delegates all calls to the underlying client.
  */
 export class WorkosSdkAdapterLive implements WorkosSdkAdapter {
-	private client: WorkOS
+	private client: WorkOSClient
 	public readonly config: IWorkosConfig
 
 	constructor(
@@ -88,6 +100,7 @@ export class WorkosSdkAdapterLive implements WorkosSdkAdapter {
 		redirectUri: string,
 		private readonly webhookSecret?: string,
 	) {
+		if (!WorkOS) throw new Error('WorkOS disabled in LOCAL MODE')
 		this.client = new WorkOS(apiKey)
 		this.config = { clientId, redirectUri }
 	}

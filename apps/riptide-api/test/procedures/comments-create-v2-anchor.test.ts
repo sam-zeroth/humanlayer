@@ -14,6 +14,7 @@ import { upsertArtifactProcedure } from '../../src/orpc/daemon/artifacts/upsert'
 import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMockDaemonContext } from '../mocks'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -97,7 +98,12 @@ describe('api/comments/create — V2 anchor persistence', () => {
 	test('persists the whole-block anchor envelope verbatim with null legacy triplet columns', async () => {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'V2 whole-block comment', anchorJson: wholeBlockAnchor },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'V2 whole-block comment',
+				anchorJson: wholeBlockAnchor,
+			},
 			{ context: makeContext() },
 		)
 
@@ -116,10 +122,15 @@ describe('api/comments/create — V2 anchor persistence', () => {
 		expect(row?.created_by_user_id).toBe(userId)
 	})
 
-	test('captures the latest artifact version like legacy creates', async () => {
+	test('captures an explicit viewed snapshot for a V2 comment', async () => {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Version capture check', anchorJson: wholeBlockAnchor },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Version capture check',
+				anchorJson: wholeBlockAnchor,
+			},
 			{ context: makeContext() },
 		)
 
@@ -131,14 +142,16 @@ describe('api/comments/create — V2 anchor persistence', () => {
 			.orderBy(desc(artifactVersions.version_number))
 			.limit(1)
 
-		if (latestVersion) expect(row?.created_at_artifact_version_id).toBe(latestVersion.id)
-		else expect(row?.created_at_artifact_version_id).toBeNull()
+		expect(latestVersion).toBeDefined()
+		expect(row?.created_at_artifact_version_id).toBe(latestVersion?.id)
+		expect(row?.viewed_version_verified).toBe(true)
 	})
 
 	test('legacy callers that omit anchorJson persist a null anchor_json', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Legacy comment',
 				commentedUponBlockText: 'Line 1',
@@ -158,6 +171,7 @@ describe('api/comments/create — V2 anchor persistence', () => {
 			call(
 				createCommentProcedure,
 				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
 					artifactId,
 					contentText: 'Bad envelope',
 					// Wrong version literal.
@@ -171,6 +185,7 @@ describe('api/comments/create — V2 anchor persistence', () => {
 			call(
 				createCommentProcedure,
 				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
 					artifactId,
 					contentText: 'Bad offsets',
 					anchorJson: {
@@ -188,7 +203,12 @@ describe('api/comments/create — V2 anchor persistence', () => {
 		await expect(
 			call(
 				createCommentProcedure,
-				{ artifactId, contentText: 'Should fail - no access', anchorJson: wholeBlockAnchor },
+				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactId),
+					artifactId,
+					contentText: 'Should fail - no access',
+					anchorJson: wholeBlockAnchor,
+				},
 				{ context: makeContext(otherUserId) },
 			),
 		).rejects.toThrow()

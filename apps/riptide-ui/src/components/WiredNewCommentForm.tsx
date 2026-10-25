@@ -17,6 +17,7 @@ export interface WiredNewCommentFormProps extends CommentMutationScope {
  * while mutation success and surface cleanup are coordinated here.
  */
 export function WiredNewCommentForm({
+	artifactVersionId,
 	artifactId,
 	taskId,
 	resourceOwnerUserId,
@@ -35,6 +36,7 @@ export function WiredNewCommentForm({
 		(contentText: string, contentJson?: string, submittedAnchor?: PendingCommentAnchor) => {
 			const created = createComment({
 				artifactId,
+				artifactVersionId,
 				taskId,
 				resourceOwnerUserId,
 				contentText,
@@ -46,7 +48,7 @@ export function WiredNewCommentForm({
 			toast.success('Comment added', { duration: 3000, closeButton: true })
 			return true
 		},
-		[anchor, artifactId, createComment, resourceOwnerUserId, taskId],
+		[artifactVersionId, anchor, artifactId, createComment, resourceOwnerUserId, taskId],
 	)
 
 	return (

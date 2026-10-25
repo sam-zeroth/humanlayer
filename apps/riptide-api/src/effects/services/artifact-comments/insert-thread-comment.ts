@@ -3,7 +3,7 @@ import { artifactComments as commentRows } from '@humanlayer/db/tables/artifact-
 import { artifactVersions } from '@humanlayer/db/tables/artifact-versions'
 import type { ArtifactCommentAnchor } from '@humanlayer/db/zodschemas/artifact-comment-anchor'
 import type { CommentKind } from '@humanlayer/db/zodschemas/artifact-comment-kind'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { uuidv7 } from 'uuidv7'
 
@@ -13,7 +13,7 @@ import {
 	collectArtifactCommentThreadMemberIds,
 	getArtifactCommentRootId,
 } from './artifact-comment-threads'
-import { ArtifactCommentNotFound } from './artifact-comments-errors'
+import { ArtifactCommentInvalid, ArtifactCommentNotFound } from './artifact-comments-errors'
 
 export type ThreadCommentAuthor =
 	| { kind: 'user'; userId: string; createdByAgent: boolean }
@@ -24,6 +24,7 @@ export interface InsertThreadCommentInput {
 	artifact: { id: string; organization_id: string; task_id: string; resource_owner_user_id: string }
 	author: ThreadCommentAuthor
 	id?: string
+	artifactVersionId?: string
 	contentText: string
 	contentJson?: unknown
 	anchorJson?: ArtifactCommentAnchor | null
@@ -47,6 +48,33 @@ export interface InsertThreadCommentInput {
 export const insertThreadComment = (tx: PostgresTransaction, input: InsertThreadCommentInput) =>
 	Effect.gen(function* () {
 		const { artifact, author, now } = input
+		if (input.artifactVersionId) {
+			const [viewed] = yield* tx.query(
+				tx.client
+					.select({ id: artifactVersions.id })
+					.from(artifactVersions)
+					.where(
+						and(
+							eq(artifactVersions.id, input.artifactVersionId),
+							eq(artifactVersions.artifact_id, artifact.id),
+							eq(artifactVersions.organization_id, artifact.organization_id),
+						),
+					)
+					.limit(1),
+			)
+			if (!viewed)
+				return yield* Effect.fail(
+					new ArtifactCommentInvalid({
+						message: 'Could not add comment. Review the artifact and try again.',
+					}),
+				)
+		} else if (input.kind === 'approval') {
+			return yield* Effect.fail(
+				new ArtifactCommentInvalid({
+					message: 'Could not request approval. Review the artifact and try again.',
+				}),
+			)
+		}
 		let rootId: string | null = null
 		if (input.replyToCommentId) {
 			const rows =
@@ -74,14 +102,6 @@ export const insertThreadComment = (tx: PostgresTransaction, input: InsertThread
 					),
 			)
 		}
-		const [latestVersion] = yield* tx.query(
-			tx.client
-				.select({ id: artifactVersions.id })
-				.from(artifactVersions)
-				.where(eq(artifactVersions.artifact_id, artifact.id))
-				.orderBy(desc(artifactVersions.version_number))
-				.limit(1),
-		)
 		const commentId = input.id ?? uuidv7()
 		yield* tx.query(
 			tx.client.insert(commentRows).values({
@@ -99,7 +119,8 @@ export const insertThreadComment = (tx: PostgresTransaction, input: InsertThread
 				next_block_text: input.nextBlockText ?? null,
 				anchor_json: input.anchorJson ?? null,
 				kind: input.kind ?? 'comment',
-				created_at_artifact_version_id: latestVersion?.id ?? null,
+				created_at_artifact_version_id: input.artifactVersionId ?? null,
+				viewed_version_verified: input.artifactVersionId !== undefined,
 				reply_to_comment_id: rootId,
 				created_at: now,
 				updated_at: now,

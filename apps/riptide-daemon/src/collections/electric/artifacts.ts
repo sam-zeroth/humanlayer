@@ -101,6 +101,7 @@ export function createArtifactsCollection(syncOrigin: string, token: string, tas
 					// Apply optimistic update to the BASE electric collection
 					// This keeps the merged view in sync with disk state
 					artifactsElectricCollection.update(existing.id, (draft) => {
+						if (draft.content !== content) draft.current_version_id = null
 						draft.content = content
 						draft.content_hash = hash(content)
 						draft.frontmatter = frontmatter ?? draft.frontmatter
@@ -117,6 +118,7 @@ export function createArtifactsCollection(syncOrigin: string, token: string, tas
 						file_name: fileName,
 						content,
 						content_hash: hash(content),
+						current_version_id: null,
 						frontmatter: frontmatter ?? {},
 						resource_owner_user_id: '',
 						organization_id: PLACEHOLDER_UUID,

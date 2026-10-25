@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { Clock, Effect } from 'effect'
 import { hash } from 'ohash'
 
+import { lockArtifactTask, snapshotArtifact } from '../../../db/artifact-snapshots'
 import { getTxId } from '../../../db/get-tx-id'
 import { mapPostgresErrorToResponse } from '../../../effects/services/postgres/error-mapping'
 import { requireTaskEditPermission } from '../../../effects/services/postgres/helpers'
@@ -41,6 +42,7 @@ export const upsertTextArtifactProcedure = effectOrpcBaseOrganizationRequired.up
 	const txResult = yield* postgres
 		.transaction((tx) =>
 			Effect.gen(function* () {
+				yield* tx.run(() => lockArtifactTask(tx.client, taskId))
 				const task = yield* requireTaskEditPermission(tx, { taskId, userId, organizationId })
 
 				const taskSlug = task.slug
@@ -56,6 +58,7 @@ export const upsertTextArtifactProcedure = effectOrpcBaseOrganizationRequired.up
 
 				// update existing artifact
 				if (existingArtifactToUpdate) {
+					yield* tx.run(() => snapshotArtifact(tx.client, existingArtifactToUpdate.id))
 					yield* tx.query(
 						tx.client
 							.update(artifacts)
@@ -71,6 +74,7 @@ export const upsertTextArtifactProcedure = effectOrpcBaseOrganizationRequired.up
 							})
 							.where(eq(artifacts.id, existingArtifactToUpdate.id)),
 					)
+					yield* tx.run(() => snapshotArtifact(tx.client, existingArtifactToUpdate.id))
 					const transactionId = yield* tx.run(() => getTxId(tx.client))
 					return { artifactId: existingArtifactToUpdate.id, txid: transactionId, created: false }
 				} else {
@@ -97,6 +101,7 @@ export const upsertTextArtifactProcedure = effectOrpcBaseOrganizationRequired.up
 					if (!newArtifact) {
 						yield* Effect.logError('Failed to get new artifact back from insertion.')
 					}
+					if (newArtifact) yield* tx.run(() => snapshotArtifact(tx.client, newArtifact.id))
 					const transactionId = yield* tx.run(() => getTxId(tx.client))
 					return { artifactId: newArtifact?.id ?? '', txid: transactionId, created: true }
 				}

@@ -143,7 +143,13 @@ function SharedArtifactCommentScope({
 	artifactId: string
 	shareKey: string
 }) {
-	const { review, identityDialog } = useShareLinkArtifactReview({ artifactId, shareKey })
+	const { review, identityDialog } = useShareLinkArtifactReview({
+		artifactId,
+		shareKey,
+		viewedVersion: artifact.current_version_id
+			? { id: artifact.current_version_id, content: artifact.content }
+			: undefined,
+	})
 
 	return (
 		<SharedArtifactShell title={artifact.file_name} permission="comment">
@@ -157,7 +163,7 @@ function SharedArtifactCommentScope({
 	)
 }
 
-type SharedArtifactContent = { content: string; file_name: string }
+type SharedArtifactContent = { content: string; file_name: string; current_version_id: string | null }
 
 function SharedArtifactViewer({
 	artifactId,

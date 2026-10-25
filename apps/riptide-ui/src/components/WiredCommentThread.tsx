@@ -9,6 +9,7 @@ import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useUserInfo } from '@/hooks/useUserInfo'
 
 export interface WiredCommentThreadProps {
+	artifactVersionId?: string
 	thread: CommentThreadGroup
 	artifactFilename?: string
 	/** Live call sites always supply the editor-derived context resolver. */
@@ -23,6 +24,7 @@ export interface WiredCommentThreadProps {
  * mutations, and the session-input bridge are derived here.
  */
 export function WiredCommentThread({
+	artifactVersionId,
 	thread,
 	artifactFilename,
 	getMarkdownContextForComment,
@@ -51,6 +53,7 @@ export function WiredCommentThread({
 			return replyComment(
 				{
 					artifactId: root.artifact_id,
+					artifactVersionId,
 					taskId: root.task_id,
 					resourceOwnerUserId: root.resource_owner_user_id,
 				},
@@ -59,7 +62,7 @@ export function WiredCommentThread({
 				contentJson,
 			)
 		},
-		[replyComment, root.artifact_id, root.resource_owner_user_id, root.task_id],
+		[artifactVersionId, replyComment, root.artifact_id, root.resource_owner_user_id, root.task_id],
 	)
 
 	return (

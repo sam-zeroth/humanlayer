@@ -1,12 +1,12 @@
 import { checkIfDesignDocHasOpenQuestions } from '@humanlayer/ai/design-doc-open-questions'
 import { artifactOperationsLog } from '@humanlayer/db/tables/artifact-operations-log'
-import { artifactVersions } from '@humanlayer/db/tables/artifact-versions'
 import { artifacts } from '@humanlayer/db/tables/artifacts'
 import { sessions } from '@humanlayer/db/tables/sessions'
 import { and, eq, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { hash } from 'ohash'
 
+import { snapshotArtifact } from '../../../db/artifact-snapshots'
 import { getTxId } from '../../../db/get-tx-id'
 import { getTaskWithEffectivePermissions } from '../../../db/task-auth'
 import { OnboardingService } from '../../../effects/services/onboarding/onboarding.service'
@@ -78,30 +78,7 @@ export const upsertArtifactProcedure = daemonBase.artifacts.upsert
 				if (existingArtifact) {
 					// UPDATE existing artifact
 					artifactId = existingArtifact.id
-
-					// Only create version if content changed
-					if (existingArtifact.content_hash !== contentHash) {
-						// Get next version number
-						const [maxVersion] = await tx
-							.select({ max: sql<number>`MAX(version_number)` })
-							.from(artifactVersions)
-							.where(eq(artifactVersions.artifact_id, artifactId))
-
-						versionNumber = (maxVersion?.max ?? 0) + 1
-
-						// Create version with previous content
-						await tx.insert(artifactVersions).values({
-							artifact_id: artifactId,
-							task_id: taskId,
-							task_slug: taskSlug,
-							resource_owner_user_id: resourceOwnerUserId,
-							organization_id: organizationId,
-							content: existingArtifact.content ?? '',
-							content_hash: existingArtifact.content_hash ?? '',
-							created_by: userId,
-							version_number: versionNumber,
-						})
-					}
+					if (!existingArtifact.current_version_id) await snapshotArtifact(tx, artifactId)
 
 					// Update artifact
 					await tx
@@ -140,6 +117,9 @@ export const upsertArtifactProcedure = daemonBase.artifacts.upsert
 					artifactId = newArtifact.id
 					created = true
 				}
+
+				const snapshot = await snapshotArtifact(tx, artifactId)
+				versionNumber = snapshot?.created ? snapshot.versionNumber : undefined
 
 				// Log operation if operationType and operationContents provided
 				if (operationType && operationContents) {

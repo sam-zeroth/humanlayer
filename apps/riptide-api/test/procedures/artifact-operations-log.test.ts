@@ -320,7 +320,7 @@ describe('artifact operations log test', async () => {
 				).rejects.toThrow()
 			})
 
-			test('Test 81: Operation has version_created: false on create', async () => {
+			test('Test 81: Operation has version_created: true for the initial snapshot', async () => {
 				const [task] = await db
 					.insert(tasks)
 					.values({
@@ -359,7 +359,7 @@ describe('artifact operations log test', async () => {
 					.limit(1)
 
 				expect(logEntry).toBeDefined()
-				expect(logEntry?.version_created).toBe(false)
+				expect(logEntry?.version_created).toBe(true)
 			})
 		})
 

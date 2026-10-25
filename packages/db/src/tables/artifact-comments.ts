@@ -84,6 +84,9 @@ export const artifactComments = pgTable(
 
 		created_at_artifact_version_id: uuid('created_at_artifact_version_id').references(() => artifactVersions.id),
 
+		// Old non-null bindings were inferred server-side and are not viewed evidence.
+		viewed_version_verified: boolean('viewed_version_verified').notNull().default(false),
+
 		/** Text content of the block that was commented on */
 		commented_upon_block_text: text('commented_upon_block_text'),
 		/** Text content of the block before the commented block (null if first block) */

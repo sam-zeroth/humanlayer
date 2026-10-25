@@ -112,3 +112,6 @@ packages/ai/eval-results-agentic/
 .humanlayer/workspace.local.json
 REACT_DOCTOR_ISSUES.json
 .shadow/
+
+# Local factory credentials, certificates, SQLite delivery state, browser profile and stack config
+/.local-factory/

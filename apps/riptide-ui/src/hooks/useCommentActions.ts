@@ -8,6 +8,7 @@ import { useRiptideApi } from '@/orpc/client'
 
 export interface CommentMutationScope {
 	artifactId: string
+	artifactVersionId?: string
 	taskId: string
 	resourceOwnerUserId: string
 }
@@ -59,6 +60,7 @@ export function useCommentActions(): CommentActionsResult {
 	const createComment = useCallback(
 		({
 			artifactId,
+			artifactVersionId,
 			taskId,
 			resourceOwnerUserId,
 			contentText,
@@ -66,7 +68,7 @@ export function useCommentActions(): CommentActionsResult {
 			anchor,
 			replyToCommentId,
 		}: CreateCommentInput) => {
-			if (!dbOrganizationId || !userId) return false
+			if (!dbOrganizationId || !userId || !artifactVersionId) return false
 			const baseInput = {
 				id: uuidv7(),
 				organizationId: dbOrganizationId,
@@ -74,6 +76,7 @@ export function useCommentActions(): CommentActionsResult {
 				taskId,
 				createdByUserId: userId,
 				artifactId,
+				artifactVersionId,
 				contentText,
 				contentJson: contentJson ?? undefined,
 			}

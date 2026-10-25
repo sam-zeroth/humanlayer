@@ -1,7 +1,8 @@
 import { parseWorkOsAccessTokenClaims } from '@humanlayer/schemas/effect/workos-access-token'
 import * as Sentry from '@sentry/node'
-import { jwtVerify } from 'jose'
+import { jwtVerify, type JWTVerifyOptions } from 'jose'
 
+import { localAuthConfig, LOCAL_ORG_ID, LOCAL_USER_ID, LOCAL_WORKOS_ORG_ID } from '../../../../local-factory/config'
 import { logger } from '../logger'
 import { isExpiredJwtError } from './expired-jwt'
 import { jwksCache } from './jwks-cache'
@@ -74,12 +75,24 @@ export async function validateJWT(token: string): Promise<AuthContextOptionalOrg
 			return null
 		}
 
-		// Verify with the issuer from the token
-		const { payload: verifiedPayload } = await jwtVerify(token, key, {
-			issuer,
-		})
+		const verificationOptions: JWTVerifyOptions = { issuer }
+		if (process.env.LOCAL_SURFACE === '1') {
+			verificationOptions.issuer = localAuthConfig().issuer
+			verificationOptions.audience = localAuthConfig().audience
+			verificationOptions.algorithms = ['RS256']
+			verificationOptions.requiredClaims = ['exp', 'iat', 'sub', 'aud', 'iss']
+		}
+		const { payload: verifiedPayload } = await jwtVerify(token, key, verificationOptions)
 
 		const claims = parseWorkOsAccessTokenClaims(verifiedPayload)
+		if (
+			process.env.LOCAL_SURFACE === '1' &&
+			(claims.sub !== LOCAL_USER_ID ||
+				claims.internal_org_id !== LOCAL_ORG_ID ||
+				claims.org_id !== LOCAL_WORKOS_ORG_ID ||
+				claims.act !== undefined)
+		)
+			return null
 
 		// Convert to auth context - org fields now optional
 		return {

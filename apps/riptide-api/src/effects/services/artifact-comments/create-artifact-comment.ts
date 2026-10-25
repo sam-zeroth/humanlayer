@@ -27,6 +27,10 @@ export const createArtifactComment = Effect.fn('artifact_comments.create')(funct
 	const decodedInput = yield* Schema.decodeUnknownEffect(CreateArtifactCommentInput)(rawInput).pipe(
 		Effect.mapError(() => new ArtifactCommentInvalidInput({ message: 'Invalid artifact comment input' })),
 	)
+	if (!decodedInput.artifactVersionId)
+		return yield* Effect.fail(
+			new ArtifactCommentInvalidInput({ message: 'Could not add comment. Review the artifact and try again.' }),
+		)
 	const anchor =
 		decodedInput.anchorJson === undefined
 			? undefined
@@ -69,6 +73,7 @@ export const createArtifactComment = Effect.fn('artifact_comments.create')(funct
 						createdByAgent: input.userInfo.createdByAgent,
 					},
 					id: input.id,
+					artifactVersionId: input.artifactVersionId,
 					contentText: input.contentText,
 					contentJson: input.contentJson,
 					commentedUponBlockText: input.commentedUponBlockText,

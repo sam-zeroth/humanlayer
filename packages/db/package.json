@@ -9,7 +9,8 @@
 		"./effect-schemas/*": "./src/effect-schemas/*.ts",
 		"./zodschemas/*": "./src/zodschemas/*.ts",
 		"./utils/*": "./src/utils/*.ts",
-		"./schema": "./src/schema.ts"
+		"./schema": "./src/schema.ts",
+		"./factory-unit": "./src/factory-unit.ts"
 	},
 	"scripts": {
 		"db:forcepush": "bun --bun drizzle-kit push ",

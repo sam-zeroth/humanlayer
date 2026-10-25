@@ -59,7 +59,8 @@ export function createCommentActions(
 				resource_owner_user_id: params.resourceOwnerUserId,
 				task_id: params.taskId,
 				...userAuthoredCommentColumns(params.createdByUserId),
-				created_at_artifact_version_id: null,
+				created_at_artifact_version_id: params.artifactVersionId,
+				viewed_version_verified: false,
 				resolved_by_user_id: null,
 				created_by_agent: false,
 			})
@@ -68,6 +69,7 @@ export function createCommentActions(
 			const response = await api.comments.create({
 				id: params.id,
 				artifactId: params.artifactId,
+				artifactVersionId: params.artifactVersionId,
 				contentText: params.contentText,
 				contentJson: params.contentJson,
 				commentedUponBlockText: sanitizeBlockText(params.commentedUponBlockText) ?? undefined,

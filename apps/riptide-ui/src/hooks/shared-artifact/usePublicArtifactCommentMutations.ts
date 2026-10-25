@@ -88,11 +88,13 @@ export function usePublicArtifactCommentMutations(options: Options) {
 			input: CreateV2CommentInput | CreateV2ReplyInput,
 			target: { anchorJson?: CreateV2CommentInput['anchorJson']; contentJson?: unknown; rootCommentId?: string },
 		) => {
+			if (!input.artifactVersionId) throw new Error('Could not add comment. Reload the artifact and try again.')
 			const guestIdentity = await options.requireGuestIdentity()
 			const remove = addOptimistic(input, guestIdentity)
 			try {
 				const response = await client.public.artifacts.createComment({
 					artifactId: options.artifactId,
+					artifactVersionId: input.artifactVersionId,
 					shareKey: options.shareKey,
 					id: input.id,
 					contentText: input.contentText,

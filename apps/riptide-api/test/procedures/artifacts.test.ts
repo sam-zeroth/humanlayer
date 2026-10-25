@@ -525,7 +525,7 @@ describe('artifacts test', async () => {
 				)
 			})
 
-			test('Test 45: versionNumber is undefined on create', async () => {
+			test('Test 45: versionNumber is 1 on create', async () => {
 				const [task] = await db
 					.insert(tasks)
 					.values({
@@ -548,7 +548,7 @@ describe('artifacts test', async () => {
 					},
 				)
 
-				expect(result.versionNumber).toBeUndefined()
+				expect(result.versionNumber).toBe(1)
 			})
 
 			test('Test 46: Artifact has correct content_hash via ohash', async () => {
@@ -856,7 +856,7 @@ describe('artifacts test', async () => {
 				expect(updateResult.created).toBe(false)
 			})
 
-			test('Test 55: Returns versionNumber: 1 on first update', async () => {
+			test('Test 55: Returns versionNumber: 2 on first update', async () => {
 				const [task] = await db
 					.insert(tasks)
 					.values({
@@ -889,7 +889,7 @@ describe('artifacts test', async () => {
 					},
 				)
 
-				expect(updateResult.versionNumber).toBe(1)
+				expect(updateResult.versionNumber).toBe(2)
 			})
 
 			test('Test 56: Artifacts content and content_hash updated', async () => {
@@ -994,7 +994,7 @@ describe('artifacts test', async () => {
 		})
 
 		describe('5.4 Update Existing Artifact (Content Unchanged)', () => {
-			test('converts an S3-backed artifact to exact Postgres text without creating a version', async () => {
+			test('converts an S3-backed artifact to exact Postgres text with its first text snapshot', async () => {
 				const [task] = await db
 					.insert(tasks)
 					.values({
@@ -1044,7 +1044,7 @@ describe('artifacts test', async () => {
 					.where(eq(artifactVersions.artifact_id, s3Artifact.id))
 
 				expect(result).toMatchObject({ artifactId: s3Artifact.id, created: false })
-				expect(result.versionNumber).toBeUndefined()
+				expect(result.versionNumber).toBe(1)
 				expect(convertedArtifact).toMatchObject({
 					storage_type: 'postgres',
 					content,
@@ -1053,7 +1053,7 @@ describe('artifacts test', async () => {
 					content_type: null,
 					file_size_bytes: null,
 				})
-				expect(versions).toHaveLength(0)
+				expect(versions).toHaveLength(1)
 			})
 
 			test('Test 58: Returns created: false', async () => {
@@ -1180,7 +1180,7 @@ describe('artifacts test', async () => {
 					.where(eq(artifactVersions.artifact_id, createResult.artifactId))
 
 				expect(versionsAfter.length).toBe(versionsBefore.length)
-				expect(versionsAfter.length).toBe(0) // No versions should exist
+				expect(versionsAfter.length).toBe(1) // The initial snapshot remains; retry adds none
 			})
 		})
 

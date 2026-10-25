@@ -31,6 +31,7 @@ import { riptideLanguageRenderers } from '@/components/markdown-viewer/language-
 import { useSync, useSyncInternal } from '@/components/providers/SyncProvider'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useUserInfo } from '@/hooks/useUserInfo'
+import { useViewedArtifactVersion } from '@/hooks/useViewedArtifactVersion'
 import { MobileArtifactSheet, type MobileArtifactSheetProps } from '@/mobile/components/pure/MobileArtifactSheet'
 import { MobileCommentComposer } from '@/mobile/components/pure/MobileCommentComposer'
 import { MobileCommentThread, type MobileCommentUserInfo } from '@/mobile/components/pure/MobileCommentThread'
@@ -415,10 +416,13 @@ function useWiredMobileArtifactSheetProps(props: MobileArtifactSheetProps) {
 		onArtifactClose()
 	}, [handleCancelComment, onArtifactClose])
 
+	const artifactVersionId = useViewedArtifactVersion(selectedArtifactId, props.selectedArtifactContent)
+
 	const handleCreateComment = useCallback(
 		(contentText: string, anchor: AnchorV2) => {
 			if (
 				!selectedArtifactId ||
+				!artifactVersionId ||
 				!artifactMetadata?.task_id ||
 				!artifactMetadata.resource_owner_user_id ||
 				!dbOrganizationId ||
@@ -436,6 +440,7 @@ function useWiredMobileArtifactSheetProps(props: MobileArtifactSheetProps) {
 				taskId: artifactMetadata.task_id,
 				createdByUserId: userId,
 				artifactId: selectedArtifactId,
+				artifactVersionId,
 				contentText,
 				anchorJson: anchor,
 			})
@@ -446,13 +451,14 @@ function useWiredMobileArtifactSheetProps(props: MobileArtifactSheetProps) {
 			if (editor) setPendingHighlight(editor.view, null)
 			setActiveCommentIds([commentId])
 		},
-		[artifactMetadata, commentActions, dbOrganizationId, editor, selectedArtifactId, userId],
+		[artifactVersionId, artifactMetadata, commentActions, dbOrganizationId, editor, selectedArtifactId, userId],
 	)
 
 	const handleReplyComment = useCallback(
 		(replyToCommentId: string, contentText: string) => {
 			if (
 				!selectedArtifactId ||
+				!artifactVersionId ||
 				!artifactMetadata?.task_id ||
 				!artifactMetadata.resource_owner_user_id ||
 				!dbOrganizationId ||
@@ -469,11 +475,12 @@ function useWiredMobileArtifactSheetProps(props: MobileArtifactSheetProps) {
 				taskId: artifactMetadata.task_id,
 				createdByUserId: userId,
 				artifactId: selectedArtifactId,
+				artifactVersionId,
 				contentText,
 				rootCommentId: replyToCommentId,
 			})
 		},
-		[artifactMetadata, commentActions, dbOrganizationId, selectedArtifactId, userId],
+		[artifactVersionId, artifactMetadata, commentActions, dbOrganizationId, selectedArtifactId, userId],
 	)
 
 	const handleDeleteComment = useCallback(

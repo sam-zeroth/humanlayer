@@ -37,6 +37,7 @@ export type ArtifactCommentProjectionRow = Omit<Pick<
 	anonymous_author_id?: string | null
 	anonymous_guest_name?: string | null
 	created_via_public_share?: boolean
+	viewed_version_verified?: boolean
 }
 
 export interface ProjectedCommentParticipant {

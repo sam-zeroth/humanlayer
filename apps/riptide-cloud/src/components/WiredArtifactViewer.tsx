@@ -33,6 +33,7 @@ import { TaskArtifactViewer } from '@/components/TaskArtifactViewer'
 import { useArtifactViewerStore } from '@/hooks/stores/artifactViewerStore'
 import { useOrgMembers } from '@/hooks/useOrgMembers'
 import { useUserInfo } from '@/hooks/useUserInfo'
+import { useViewedArtifactVersion } from '@/hooks/useViewedArtifactVersion'
 import { useSync, useSyncInternal } from '@/providers/SyncProvider'
 
 const cloudLanguageRenderers = {
@@ -118,6 +119,7 @@ function WiredArtifactViewerV1({
 	editorRef: externalEditorRef,
 	...viewerProps
 }: WiredArtifactViewerProps) {
+	const viewedVersionId = useViewedArtifactVersion(artifactId, viewerProps.content)
 	const { client } = useRiptideApi()
 	const { artifactCommentsCollection } = useSync()
 	const { confirmTx } = useSyncInternal()
@@ -410,7 +412,7 @@ function WiredArtifactViewerV1({
 				nextBlockText: string | null
 			},
 		) => {
-			if (!dbOrganizationId || !userId) {
+			if (!dbOrganizationId || !userId || !viewedVersionId) {
 				return
 			}
 			commentActions.createComment({
@@ -420,6 +422,7 @@ function WiredArtifactViewerV1({
 				taskId,
 				createdByUserId: userId,
 				artifactId,
+				artifactVersionId: viewedVersionId,
 				contentText,
 				contentJson: contentJson ?? undefined,
 				commentedUponBlockText: anchor?.commentedUponBlockText,
@@ -433,12 +436,12 @@ function WiredArtifactViewerV1({
 				setPendingHighlightBlock(editorRef.current.view, null)
 			}
 		},
-		[commentActions, dbOrganizationId, userId, resourceOwnerUserId, taskId, artifactId],
+		[commentActions, dbOrganizationId, userId, resourceOwnerUserId, taskId, artifactId, viewedVersionId],
 	)
 
 	const handleReplyComment = useCallback(
 		(replyToCommentId: string, contentText: string, contentJson?: string) => {
-			if (!dbOrganizationId || !userId) return
+			if (!dbOrganizationId || !userId || !viewedVersionId) return
 			commentActions.createComment({
 				id: uuidv7(),
 				organizationId: dbOrganizationId,
@@ -446,12 +449,13 @@ function WiredArtifactViewerV1({
 				taskId,
 				createdByUserId: userId,
 				artifactId,
+				artifactVersionId: viewedVersionId,
 				contentText,
 				contentJson: contentJson ?? undefined,
 				replyToCommentId,
 			})
 		},
-		[commentActions, dbOrganizationId, userId, resourceOwnerUserId, taskId, artifactId],
+		[commentActions, dbOrganizationId, userId, resourceOwnerUserId, taskId, artifactId, viewedVersionId],
 	)
 
 	const handleDeleteComment = useCallback(

@@ -17,6 +17,7 @@ import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMo
 import { bindProcedureToRuntime, createRuntimeWithTestPostgresLayer } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -118,7 +119,11 @@ describe('api/comments/edit (effect)', () => {
 	async function createComment(uid = userId) {
 		const result = await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Original content' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Original content',
+			},
 			{ context: makeContext(uid) },
 		)
 		return result.commentId
@@ -129,6 +134,7 @@ describe('api/comments/edit (effect)', () => {
 		const rootResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'V2 root content',
 				contentJson: structuredContent,
@@ -140,6 +146,7 @@ describe('api/comments/edit (effect)', () => {
 		const replyResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'V2 reply content',
 				contentJson: structuredContent,

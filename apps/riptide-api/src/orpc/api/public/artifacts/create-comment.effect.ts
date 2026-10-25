@@ -11,6 +11,8 @@ export const createPublicArtifactCommentProcedure = effectOrpcBasePublic.public.
 				PostgresDbQueryError: (error) => mapPostgresErrorToResponse(error, errors),
 				PostgresDbTransactionError: (error) => mapPostgresErrorToResponse(error, errors),
 				PublicCommentNotFoundError: () => Effect.fail(errors.NOT_FOUND()),
+				ArtifactCommentInvalid: (error) =>
+					Effect.fail(errors.BAD_REQUEST({ data: { message: error.message } })),
 				PublicCommentValidationError: (error) =>
 					Effect.fail(errors.BAD_REQUEST({ data: { message: error.message } })),
 				GuestIdentityConflictError: () =>

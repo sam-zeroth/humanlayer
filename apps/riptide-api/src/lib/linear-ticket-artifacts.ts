@@ -2,6 +2,8 @@ import { artifacts } from '@humanlayer/db/tables/artifacts'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { hash } from 'ohash'
 
+import { lockArtifactTask, snapshotArtifact } from '../db/artifact-snapshots'
+import type { PostgresDbTransactionClient } from '../effects/services/postgres/postgres-db.service'
 import logger from '../logger'
 import { formatLinearTicketMd, type LinearIssue } from './format-linear-ticket'
 import type { ILinearService } from './linear-service'
@@ -164,7 +166,7 @@ export class LinearArtifactService {
 		taskSlug,
 		userId,
 	}: {
-		tx: PostgresJsDatabase
+		tx: PostgresDbTransactionClient
 		organizationId: string
 		ticketId: string
 		taskId: string
@@ -178,19 +180,26 @@ export class LinearArtifactService {
 		const ticketContent = formatLinearTicketMd(issue, imageReplacements)
 		const contentHash = hash(ticketContent)
 
-		await tx.insert(artifacts).values({
-			task_id: taskId,
-			task_slug: taskSlug,
-			file_name: 'ticket.md',
-			content: ticketContent,
-			content_hash: contentHash,
-			content_type: 'text/plain',
-			file_size_bytes: BigInt(Buffer.byteLength(ticketContent, 'utf8')),
-			storage_type: 'postgres',
-			resource_owner_user_id: userId,
-			organization_id: organizationId,
-			created_by: userId,
-		})
+		await lockArtifactTask(tx, taskId)
+		const [artifact] = await tx
+			.insert(artifacts)
+			.values({
+				task_id: taskId,
+				task_slug: taskSlug,
+				file_name: 'ticket.md',
+				content: ticketContent,
+				content_hash: contentHash,
+				content_type: 'text/plain',
+				file_size_bytes: BigInt(Buffer.byteLength(ticketContent, 'utf8')),
+				storage_type: 'postgres',
+				resource_owner_user_id: userId,
+				organization_id: organizationId,
+				created_by: userId,
+			})
+			.returning()
+
+		if (!artifact) throw new Error('Ticket artifact insert returned no row')
+		await snapshotArtifact(tx, artifact.id)
 
 		logger.info(
 			{ taskId, ticketId, hasDescription: !!issue.description, commentCount: issue.comments.length },

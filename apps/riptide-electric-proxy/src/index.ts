@@ -53,7 +53,11 @@ const app = createApp({
 	db,
 })
 
-const server = serve({ fetch: app.fetch, port: PORT })
+const server = serve({
+	fetch: app.fetch,
+	port: PORT,
+	hostname: process.env.LOCAL_SURFACE === '1' ? '127.0.0.1' : undefined,
+})
 if (!(server instanceof Server)) {
 	throw new Error(`Expected http.Server but got ${server.constructor.name}`)
 }

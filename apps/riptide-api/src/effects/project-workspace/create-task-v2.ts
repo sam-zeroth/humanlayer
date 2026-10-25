@@ -20,6 +20,7 @@ import { and, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { hash } from 'ohash'
 
+import { snapshotTaskArtifacts } from '../../db/artifact-snapshots'
 import type { PreparedTicketArtifactBundle } from '../../lib/linear-ticket-artifacts'
 import { getTransactionId } from '../services/postgres/helpers'
 import { PostgresDb, type PostgresTransaction } from '../services/postgres/postgres-db.service'
@@ -424,6 +425,7 @@ export const createTaskV2 = Effect.fn('project_workspace.create_task_v2')(functi
 					.onConflictDoNothing(),
 			)
 
+			yield* transaction.run(() => snapshotTaskArtifacts(transaction.client, taskId))
 			return { result: 'created' as const, transactionId: txId, taskId, workspaceId, sessionId }
 		}),
 	)

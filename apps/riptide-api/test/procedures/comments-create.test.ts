@@ -19,6 +19,7 @@ import { upsertArtifactProcedure } from '../../src/orpc/daemon/artifacts/upsert'
 import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMockDaemonContext } from '../mocks'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -96,6 +97,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'This is interesting',
 				commentedUponBlockText: 'Hello world',
@@ -122,6 +124,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'General comment, no highlight',
 			},
@@ -152,7 +155,11 @@ describe('api/comments/create', async () => {
 
 		await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'First teammate comment' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'First teammate comment',
+			},
 			{ context: makeContext(otherUserId) },
 		)
 		const [first] = await db
@@ -161,7 +168,11 @@ describe('api/comments/create', async () => {
 			.where(eq(userSettings.user_id, userId))
 		await call(
 			createCommentProcedure,
-			{ artifactId, contentText: 'Second teammate comment' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
+				artifactId,
+				contentText: 'Second teammate comment',
+			},
 			{ context: makeContext(otherUserId) },
 		)
 		const [second] = await db
@@ -176,7 +187,11 @@ describe('api/comments/create', async () => {
 	test('does not write the inbound comment milestone for an owner self-comment', async () => {
 		await db.delete(userSettings).where(eq(userSettings.user_id, userId))
 
-		await call(createCommentProcedure, { artifactId, contentText: 'Owner note' }, { context: makeContext(userId) })
+		await call(
+			createCommentProcedure,
+			{ artifactVersionId: await viewedArtifactVersion(db, artifactId), artifactId, contentText: 'Owner note' },
+			{ context: makeContext(userId) },
+		)
 
 		const [settings] = await db.select().from(userSettings).where(eq(userSettings.user_id, userId))
 		expect(settings).toBeUndefined()
@@ -188,6 +203,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				id: clientId,
 				artifactId,
 				contentText: 'Comment with client ID',
@@ -206,6 +222,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Comment without explicit ID',
 			},
@@ -221,6 +238,7 @@ describe('api/comments/create', async () => {
 		const parentResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Parent comment',
 			},
@@ -231,6 +249,7 @@ describe('api/comments/create', async () => {
 		const replyResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Reply to parent',
 				replyToCommentId: parentResult.commentId,
@@ -252,16 +271,14 @@ describe('api/comments/create', async () => {
 	test('replying to resolved thread reopens all thread members and anchors to root', async () => {
 		const rootResult = await call(
 			createCommentProcedure,
-			{
-				artifactId,
-				contentText: 'Root comment',
-			},
+			{ artifactVersionId: await viewedArtifactVersion(db, artifactId), artifactId, contentText: 'Root comment' },
 			{ context: makeContext() },
 		)
 
 		const childResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Child reply',
 				replyToCommentId: rootResult.commentId,
@@ -278,6 +295,7 @@ describe('api/comments/create', async () => {
 		const reopenedReply = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Reopening activity',
 				replyToCommentId: childResult.commentId,
@@ -307,6 +325,7 @@ describe('api/comments/create', async () => {
 		const rootResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Legacy root comment',
 			},
@@ -316,6 +335,7 @@ describe('api/comments/create', async () => {
 		const childResult = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Legacy child reply',
 				replyToCommentId: rootResult.commentId,
@@ -344,6 +364,7 @@ describe('api/comments/create', async () => {
 		const reopenedReply = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Reply on nested resolved comment',
 				replyToCommentId: grandchildId,
@@ -377,6 +398,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'ACL denormalization check',
 			},
@@ -393,39 +415,61 @@ describe('api/comments/create', async () => {
 		expect(row?.resource_owner_user_id.length).toBeGreaterThan(0)
 	})
 
-	test('created_at_artifact_version_id set to latest version (or null if no versions)', async () => {
-		// The artifact was created via daemon upsert which may or may not create versions
+	test('retains the old viewed ID across an intervening update and accepts the fresh positive control', async () => {
+		const context = createMockDaemonContext({
+			auth: createMockDaemonAuth({ userId, organizationId, hostId }),
+			services: { db, dbReadReplica: db },
+		})
+		const initial = await call(
+			upsertArtifactProcedure,
+			{ taskId, fileName: 'viewed-race.md', content: 'A' },
+			{ context },
+		)
+		const oldId = await viewedArtifactVersion(db, initial.artifactId)
+		await call(upsertArtifactProcedure, { taskId, fileName: 'viewed-race.md', content: 'B' }, { context })
+		const currentId = await viewedArtifactVersion(db, initial.artifactId)
+		expect(currentId).not.toBe(oldId)
+		for (const artifactVersionId of [oldId, currentId]) {
+			const result = await call(
+				createCommentProcedure,
+				{
+					artifactId: initial.artifactId,
+					artifactVersionId,
+					contentText: 'A version-bound request',
+					kind: 'approval',
+				},
+				{ context: makeContext() },
+			)
+			const [comment] = await db.select().from(artifactComments).where(eq(artifactComments.id, result.commentId))
+			expect(comment?.created_at_artifact_version_id).toBe(artifactVersionId)
+			expect(comment?.viewed_version_verified).toBe(true)
+		}
+		await expect(
+			call(
+				createCommentProcedure,
+				{ artifactId, artifactVersionId: currentId, contentText: 'Foreign revision' },
+				{ context: makeContext() },
+			),
+		).rejects.toThrow()
+	})
+
+	test('stores the explicit viewed version and verified provenance', async () => {
+		const artifactVersionId = await viewedArtifactVersion(db, artifactId)
 		const result = await call(
 			createCommentProcedure,
-			{
-				artifactId,
-				contentText: 'Version check comment',
-			},
+			{ artifactId, artifactVersionId, contentText: 'Version check comment' },
 			{ context: makeContext() },
 		)
-
-		const [row] = await db.select().from(artifactComments).where(eq(artifactComments.id, result.commentId)).limit(1)
-
-		// Check for latest artifact version
-		const [latestVersion] = await db
-			.select()
-			.from(artifactVersions)
-			.where(eq(artifactVersions.artifact_id, artifactId))
-			.orderBy(artifactVersions.version_number)
-			.limit(1)
-
-		if (latestVersion) {
-			// If versions exist, the comment should reference the latest one
-			expect(row?.created_at_artifact_version_id).toBeTypeOf('string')
-		} else {
-			expect(row?.created_at_artifact_version_id).toBeNull()
-		}
+		const [row] = await db.select().from(artifactComments).where(eq(artifactComments.id, result.commentId))
+		expect(row?.created_at_artifact_version_id).toBe(artifactVersionId)
+		expect(row?.viewed_version_verified).toBe(true)
 	})
 
 	test('creates comment with partial anchor (first block, no previous)', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText: 'Comment on first block',
 				commentedUponBlockText: 'First block text',
@@ -463,6 +507,7 @@ describe('api/comments/create', async () => {
 			call(
 				createCommentProcedure,
 				{
+					artifactVersionId: await viewedArtifactVersion(db, orphanArtifact.id),
 					artifactId: orphanArtifact.id,
 					contentText: 'Should fail - no task',
 				},
@@ -499,6 +544,7 @@ describe('api/comments/create', async () => {
 			call(
 				createCommentProcedure,
 				{
+					artifactVersionId: await viewedArtifactVersion(db, artifactResult.artifactId),
 					artifactId: artifactResult.artifactId,
 					contentText: 'Should fail - no access',
 				},
@@ -512,6 +558,7 @@ describe('api/comments/create', async () => {
 			call(
 				createCommentProcedure,
 				{
+					artifactVersionId: await viewedArtifactVersion(db, randomUUID()),
 					artifactId: randomUUID(),
 					contentText: 'Should fail',
 				},
@@ -556,6 +603,7 @@ describe('api/comments/create', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactResult.artifactId),
 				artifactId: artifactResult.artifactId,
 				contentText: 'Shared task comment',
 			},

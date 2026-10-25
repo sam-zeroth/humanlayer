@@ -32,6 +32,7 @@ export interface ArtifactCommentThreadProps {
 	 * visually neutral so free-form feedback never reads as a typed verdict.
 	 */
 	kind: CommentKind
+	viewedVersionVerified?: boolean
 	/** Transient selected/hovered emphasis, mirrored with the document highlight. */
 	active: boolean
 	/** The stored quote no longer resolves in the current document. */
@@ -122,6 +123,7 @@ export function ArtifactCommentThread({
 	createdAt,
 	contentText,
 	kind,
+	viewedVersionVerified,
 	active,
 	outdated,
 	originalText,
@@ -259,6 +261,7 @@ export function ArtifactCommentThread({
 					</Avatar>
 					<span className="artifact-viewer-v2-comment-thread-author">{authorName}</span>
 					{authorBadge}
+					{kind === 'approval' && viewedVersionVerified !== true ? <span className="text-xs text-muted-foreground">Viewed version unverified</span> : null}
 					{chip && (
 						<span
 							className={cn('artifact-viewer-v2-comment-thread-kind', chip.className)}

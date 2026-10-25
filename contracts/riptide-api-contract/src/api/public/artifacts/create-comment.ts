@@ -14,6 +14,7 @@ export const PublicCommentGuestIdentitySchema = z.object({
 export const CreatePublicArtifactCommentInputSchema = z
 	.object({
 		artifactId: z.uuid(),
+		artifactVersionId: z.uuid(),
 		shareKey: z.string().min(1).max(512),
 		id: z.uuidv7().optional(),
 		contentText: z.string().trim().min(1).max(10_000),

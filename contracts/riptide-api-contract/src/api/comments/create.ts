@@ -28,6 +28,7 @@ export type AnchorV2Input = z.infer<typeof AnchorV2Schema>
 export const CreateCommentInputSchema = z.object({
 	id: z.uuidv7().optional().describe('Client-generated comment ID for optimistic inserts'),
 	artifactId: z.uuid(),
+	artifactVersionId: z.uuid().describe('Immutable version actually rendered by the caller'),
 	contentText: z.string().min(1),
 	contentJson: z.unknown().optional(),
 	/** Text content of the block being commented on */

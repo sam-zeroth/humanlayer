@@ -114,6 +114,7 @@ function ThreadContent({ thread, resolved, composerOpen, props }: ThreadContentP
 					: undefined
 			}
 			kind={toCommentKind(thread.root.kind)}
+			viewedVersionVerified={thread.root.viewed_version_verified}
 			active={!resolved && Boolean(props.isThreadActive?.(thread.root.id))}
 			outdated={outdated}
 			originalText={outdated ? originalAnchorText(thread.root.anchor_json) : null}

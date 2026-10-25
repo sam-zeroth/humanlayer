@@ -3,11 +3,14 @@ import { requireEnvironment } from './lib/environment'
 import { getWorkosClientId, getWorkosRedirectUri } from './lib/workos'
 import { WorkosSdkAdapterLive } from './lib/workos-service'
 
-export const workosSdkAdapter = new WorkosSdkAdapterLive(
-	requireEnvironment('WORKOS_API_KEY'),
-	getWorkosClientId(),
-	getWorkosRedirectUri(),
-	process.env.WORKOS_WEBHOOK_SECRET,
-)
+export const workosSdkAdapter =
+	process.env.LOCAL_SURFACE === '1'
+		? (await import('./lib/local-identity')).localIdentity
+		: new WorkosSdkAdapterLive(
+				requireEnvironment('WORKOS_API_KEY'),
+				getWorkosClientId(),
+				getWorkosRedirectUri(),
+				process.env.WORKOS_WEBHOOK_SECRET,
+			)
 
 export const WorkosServiceLive = makeWorkosServiceLive(workosSdkAdapter)

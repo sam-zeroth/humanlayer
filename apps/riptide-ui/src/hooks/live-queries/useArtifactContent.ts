@@ -38,6 +38,7 @@ export function useArtifactContent(artifactId: string | null) {
 
 	return {
 		artifact,
+		hasContent: data?.[0] != null,
 		isLoading,
 	}
 }

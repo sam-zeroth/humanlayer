@@ -29,6 +29,7 @@ export interface PublicCommentGuestIdentity {
 }
 
 interface WritePublicCommentInput {
+	artifactVersionId: string
 	artifactId: string
 	shareKey: string
 	requestIp?: string
@@ -141,6 +142,7 @@ export function writePublicComment(input: WritePublicCommentInput) {
 				)
 
 				const { commentId } = yield* insertThreadComment(tx, {
+					artifactVersionId: input.artifactVersionId,
 					artifact: { ...artifact, task_id: artifact.task_id },
 					author: {
 						kind: 'guest',

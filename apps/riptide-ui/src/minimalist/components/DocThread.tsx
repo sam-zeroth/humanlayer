@@ -22,6 +22,7 @@ export const UNSAVED_COMMENT = 'Could not save the comment. Your account is stil
 export type DocContext = {
 	task: Pick<Task, 'id' | 'resource_owner_user_id'>
 	artifactId: string
+	content?: string | null
 	fileName: string
 	/** Where "Send to the agent" posts the thread. */
 	sessionId: string | null
@@ -32,7 +33,7 @@ type BoxOpen = 'opened' | 'restored' | null
 
 /** An open thread: its comments, then Reply and Resolve. Your own comments can be edited or deleted. */
 export function ThreadCard({ thread, doc, focus }: { thread: Thread; doc: DocContext; focus?: PanelFocus }) {
-	const comments = useDocComments(doc.task, doc.artifactId)
+	const comments = useDocComments(doc.task, doc.artifactId, doc.content)
 	const authorOf = useCommentAuthor()
 	const agent = useAskAgent(doc.sessionId)
 	const { showToast } = useUi()
@@ -94,7 +95,7 @@ export function ThreadCard({ thread, doc, focus }: { thread: Thread; doc: DocCon
 
 /** Resolved threads, folded away at the end of the document until you want them back. */
 export function ResolvedThreads({ threads, doc }: { threads: Thread[]; doc: DocContext }) {
-	const comments = useDocComments(doc.task, doc.artifactId)
+	const comments = useDocComments(doc.task, doc.artifactId, doc.content)
 	const personOf = useCommentPerson()
 	const [open, setOpen] = useState(false)
 	const Chevron = open ? ChevronDown : ChevronRight
@@ -137,7 +138,7 @@ export function ResolvedThreads({ threads, doc }: { threads: Thread[]; doc: DocC
 
 /** One comment. Its menu sends the thread to the agent, and edits or deletes your own comment. */
 function CommentRow({ comment, doc, onSend }: { comment: ArtifactComment; doc: DocContext; onSend?: () => void }) {
-	const comments = useDocComments(doc.task, doc.artifactId)
+	const comments = useDocComments(doc.task, doc.artifactId, doc.content)
 	const personOf = useCommentPerson()
 	const anchor = useRef<HTMLButtonElement>(null)
 	const [menuOpen, setMenuOpen] = useState(false)

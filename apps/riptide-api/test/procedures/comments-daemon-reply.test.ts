@@ -20,6 +20,7 @@ import { createMockApiAuth, createMockApiContext, createMockDaemonAuth, createMo
 import { bindProcedureToRuntime } from '../utils/effect-procedure-test-runtime'
 import { requireExternalTestServices } from '../utils/external-test-services'
 import { createTestDb } from '../utils/test-db'
+import { viewedArtifactVersion } from '../utils/viewed-artifact-version'
 
 await requireExternalTestServices()
 
@@ -98,6 +99,7 @@ describe('daemon/comments/reply', async () => {
 		const result = await call(
 			createCommentProcedure,
 			{
+				artifactVersionId: await viewedArtifactVersion(db, artifactId),
 				artifactId,
 				contentText,
 				...(replyToCommentId ? { replyToCommentId } : {}),
@@ -179,7 +181,11 @@ describe('daemon/comments/reply', async () => {
 
 		const root = await call(
 			createCommentProcedure,
-			{ artifactId: planningArtifact.id, contentText: 'Human API feedback' },
+			{
+				artifactVersionId: await viewedArtifactVersion(db, planningArtifact.id),
+				artifactId: planningArtifact.id,
+				contentText: 'Human API feedback',
+			},
 			{ context: makeApiContext(collaboratorUserId) },
 		)
 		const ownerContext = makeApiContext(artifactOwnerUserId)
@@ -293,6 +299,7 @@ describe('daemon/comments/reply', async () => {
 				const selfRoot = await call(
 					createCommentProcedure,
 					{
+						artifactVersionId: await viewedArtifactVersion(db, artifact.id),
 						artifactId: artifact.id,
 						contentText: 'Self feedback does not qualify',
 						kind: planningCases[index]?.kind,
@@ -302,6 +309,7 @@ describe('daemon/comments/reply', async () => {
 				const selfChild = await call(
 					createCommentProcedure,
 					{
+						artifactVersionId: await viewedArtifactVersion(db, artifact.id),
 						artifactId: artifact.id,
 						contentText: 'Nested self feedback',
 						replyToCommentId: selfRoot.commentId,
@@ -325,6 +333,7 @@ describe('daemon/comments/reply', async () => {
 				const humanRoot = await call(
 					createCommentProcedure,
 					{
+						artifactVersionId: await viewedArtifactVersion(db, artifact.id),
 						artifactId: artifact.id,
 						contentText: 'Cross-user human feedback qualifies',
 						kind: planningCases[index]?.kind,
