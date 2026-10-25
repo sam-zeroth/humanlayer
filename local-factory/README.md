@@ -17,17 +17,17 @@ Use Bun and the repository lockfile. After installing dependencies, run `bun run
 The commands below are sequential. Claim the project's shared stack before live testing, using the exact HP executable/root supplied by the project. Do not use the coordinator's release binary for bridge tests.
 
 ```sh
-bun local-factory/stack.ts prepare
-bun local-factory/stack.ts services
+bun --no-env-file local-factory/stack.ts prepare
+bun --no-env-file local-factory/stack.ts services
 # NEW disposable test volume only. Retained data requires the apply gate first.
-bun local-factory/stack.ts migrate --disposable
-bun local-factory/stack.ts seed
-bun local-factory/stack.ts start
+bun --no-env-file local-factory/stack.ts migrate --disposable
+bun --no-env-file local-factory/stack.ts seed
+bun --no-env-file local-factory/stack.ts start
 ```
 
-`start` is a foreground supervisor. Run it in a dedicated terminal/tmux window; Ctrl-C stops its own native children. `bun local-factory/stack.ts stop` stops only this worktree's Compose services and retains volumes. It does not kill another stack, delete volumes, install global trust, or erase replay state. `prepare` can run repeatedly without rotating identity or service secrets.
+`start` is a foreground supervisor. Run it in a dedicated terminal/tmux window; Ctrl-C stops its own native children. `bun --no-env-file local-factory/stack.ts stop` stops only this worktree's Compose services and retains volumes. It does not kill another stack, delete volumes, install global trust, or erase replay state. `prepare` can run repeatedly without rotating identity or service secrets.
 
-In a second terminal, `bun local-factory/stack.ts browser` opens a dedicated headed browser with its own profile, leaf pin and one-time bootstrap fragment. It suppresses the credential-bearing navigation URL from command output. Set `LOCAL_CHROME_BINARY` if an installed Chrome cannot be discovered. Do not replace this with a global certificate bypass or your everyday browser profile. Close only this named browser session.
+In a second terminal, `bun --no-env-file local-factory/stack.ts browser` opens a dedicated headed browser with its own profile, leaf pin and one-time bootstrap fragment. It suppresses the credential-bearing navigation URL from command output. Set `LOCAL_CHROME_BINARY` if an installed Chrome cannot be discovered. Do not replace this with a global certificate bypass or your everyday browser profile. Close only this named browser session. Keep navigation in the bootstrapped tab: the credential lives in tab-scoped session storage. Browser controller sockets use a private, owned short directory recorded in `browser-socket-dir`, because deep worktree paths exceed macOS Unix socket limits. On macOS, Chrome runs with its inner sandbox disabled because nested sandbox initialization fails; the outer native sandbox still confines Chrome and its children to loopback. Use this profile only for this trusted local application.
 
 To project one unit, supply `LOCAL_HP_BINARY`, `LOCAL_HP_ROOT`, `LOCAL_HP_PROJECT` and `LOCAL_HP_THREAD` to the supervisor. The binary and root must be absolute paths. Build a debug executable from the pinned B3 source into an owned directory, or copy the coordinator-supplied debug executable. Never rebuild/edit the other thread's worktree or replace/use the coordinator's release binary. All evaluation uses a disposable HP root: old HP readers reject v1.1 gate events, so never mix them with the live coordinator's journals.
 

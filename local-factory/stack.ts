@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
+import { mkdir, mkdtemp, lstat, readFile, writeFile, readdir } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -112,6 +112,7 @@ async function prepare() {
 		'STRIPE_WEBHOOK_SECRET',
 		'RESEND_API_KEY',
 		'RESEND_WEBHOOK_SECRET',
+		'RESEND_PRODUCT_USERS_SEGMENT_ID',
 		'JIRA_CLIENT_ID',
 		'JIRA_CLIENT_SECRET',
 		'LINEAR_CLIENT_ID',
@@ -122,6 +123,7 @@ async function prepare() {
 	for (const key of ['STRIPE_API_BASE_URL', 'RESEND_API_BASE_URL', 'SLACK_API_BASE_URL', 'GITHUB_API_BASE_URL'])
 		env[key] = 'http://127.0.0.1:9'
 	env.RESEND_FROM_EMAIL = 'sam@localhost.invalid'
+	env.ONBOARDING_CAMPAIGN_ENABLED = 'false'
 	for (const key of ['LOCAL_HP_BINARY', 'LOCAL_HP_ROOT', 'LOCAL_HP_PROJECT', 'LOCAL_HP_THREAD'])
 		if (process.env[key]) env[key] = process.env[key]
 	await writeFile(
@@ -211,7 +213,9 @@ ${browserOrigin} {
   reverse_proxy 127.0.0.1:${ports.proxy}
  }
  handle_path /identity/* {
-  reverse_proxy 127.0.0.1:${ports.identity}
+  reverse_proxy 127.0.0.1:${ports.identity} {
+   header_up Host 127.0.0.1:${ports.identity}
+  }
  }
  handle {
   reverse_proxy 127.0.0.1:${ports.ui}
@@ -228,7 +232,7 @@ if (import.meta.main) {
 		throw new Error('Use prepare, services, start, stop, seed, migrate, or browser')
 	const env = await prepare()
 	localAuthConfig(env)
-	const compose = ['docker', 'compose', '-f', join(state, 'compose.json')]
+	const compose = ['docker', 'compose', '--env-file', '/dev/null', '-p', project, '-f', join(state, 'compose.json')]
 	if (command === 'prepare') {
 		await tls(env)
 		console.log('Prepared isolated local state and scoped TLS; no system trust installed')
@@ -275,6 +279,22 @@ if (import.meta.main) {
 		const wrapper = join(state, 'chrome-loopback')
 		await writeFile(wrapper, chromeWrapper(chrome, pin, process.platform === 'darwin'), { mode: 0o700 })
 
+		const socketRecord = join(state, 'browser-socket-dir')
+		const sockets = (await Bun.file(socketRecord).exists())
+			? (await readFile(socketRecord, 'utf8')).trim()
+			: await mkdtemp('/private/tmp/hl-factory-')
+		if (!/^\/private\/tmp\/hl-factory-[a-zA-Z0-9]+$/.test(sockets))
+			throw new Error('Invalid private browser socket path')
+		await mkdir(sockets, { recursive: true, mode: 0o700 })
+		const socketStat = await lstat(sockets)
+		if (
+			!socketStat.isDirectory() ||
+			socketStat.isSymbolicLink() ||
+			socketStat.uid !== process.getuid?.() ||
+			(socketStat.mode & 0o077) !== 0
+		)
+			throw new Error('Browser socket directory must be private and owned')
+		await writeFile(socketRecord, sockets, { mode: 0o600 })
 		const child = Bun.spawn(
 			['agent-browser', '--headed', 'open', browserOrigin + '/#local-bootstrap=' + bootstrap],
 			{
@@ -283,7 +303,7 @@ if (import.meta.main) {
 					AGENT_BROWSER_EXECUTABLE_PATH: wrapper,
 					AGENT_BROWSER_SESSION: project,
 					AGENT_BROWSER_PROFILE: join(state, 'browser-profile'),
-					AGENT_BROWSER_SOCKET_DIR: join(state, 'browser-sockets'),
+					AGENT_BROWSER_SOCKET_DIR: sockets,
 				},
 				stdout: 'ignore',
 				stderr: 'inherit',
@@ -329,7 +349,15 @@ if (import.meta.main) {
 			await Promise.race(children.map((child) => child.exited))
 		} finally {
 			stop()
-			await Promise.all(children.map((child) => child.exited))
+			// Electric streams can keep Caddy's graceful shutdown open indefinitely.
+			const timeout = setTimeout(() => {
+				for (const child of children) if (child.exitCode === null) child.kill('SIGKILL')
+			}, 5000)
+			try {
+				await Promise.all(children.map((child) => child.exited))
+			} finally {
+				clearTimeout(timeout)
+			}
 		}
 	}
 }
