@@ -250,8 +250,8 @@ ${browserOrigin} {
 
 if (import.meta.main) {
 	const command = process.argv[2]
-	if (!['prepare', 'services', 'start', 'stop', 'seed', 'migrate', 'browser', 'app'].includes(command ?? ''))
-		throw new Error('Use prepare, services, start, stop, seed, migrate, browser, or app')
+	if (!['prepare', 'services', 'start', 'stop', 'seed', 'migrate', 'browser'].includes(command ?? ''))
+		throw new Error('Use prepare, services, start, stop, seed, migrate, or browser')
 	const env = await prepare()
 	localAuthConfig(env)
 	const compose = ['docker', 'compose', '--env-file', '/dev/null', '-p', project, '-f', join(state, 'compose.json')]
