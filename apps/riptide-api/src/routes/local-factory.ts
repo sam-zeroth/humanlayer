@@ -93,7 +93,9 @@ export function createLocalFactoryRoutes(
 			projection,
 			requests,
 			decisionCapability:
-				projection.snapshot.gateContext && !dependencies.readOnly ? ('available' as const) : ('unavailable' as const),
+				projection.snapshot.gateContext && !dependencies.readOnly
+					? ('available' as const)
+					: ('unavailable' as const),
 		})
 	})
 	app.put('/units/:taskId', async (c) => {
@@ -228,8 +230,7 @@ export function createLocalFactoryRoutes(
 		return updated ? c.json({ projected: true }) : c.json({ error: 'HP result binding does not match' }, 409)
 	})
 	app.post('/units/:taskId/requests', async (c) => {
-		if (dependencies.readOnly)
-			return c.json({ error: 'Could not request approval. This stack is read-only.' }, 409)
+		if (dependencies.readOnly) return c.json({ error: 'Could not request approval. This stack is read-only.' }, 409)
 		const decoded = FactoryRequestSchema.safeParse(await c.req.json().catch(() => null))
 		if (!decoded.success)
 			return c.json({ error: 'Could not request approval. Review the document and try again.' }, 400)

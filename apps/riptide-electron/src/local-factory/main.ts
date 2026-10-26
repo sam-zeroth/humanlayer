@@ -52,7 +52,9 @@ const factorySession = () => session.fromPartition('sam-factory')
 function secure() {
 	const ses = factorySession()
 	ses.setCertificateVerifyProc((request, callback) => {
-		callback(stack && certificateAllowed(request.hostname, request.certificate.data, stack.origin, stack.pin) ? 0 : -2)
+		callback(
+			stack && certificateAllowed(request.hostname, request.certificate.data, stack.origin, stack.pin) ? 0 : -2,
+		)
 	})
 	ses.webRequest.onBeforeRequest((details, callback) => {
 		callback({ cancel: !stack || !requestAllowed(details.url, stack.origin) })
@@ -79,7 +81,9 @@ function load(window: BrowserWindow) {
 		stack = readStack()
 	} catch {
 		stack = null
-		void window.loadURL(failurePage('Could not find the local stack. Start it with local-factory/stack.ts start, then retry.'))
+		void window.loadURL(
+			failurePage('Could not find the local stack. Start it with local-factory/stack.ts start, then retry.'),
+		)
 		return
 	}
 	window.loadURL(stack.origin + stack.start).catch(() => {
