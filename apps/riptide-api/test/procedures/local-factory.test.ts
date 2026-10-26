@@ -154,6 +154,42 @@ test('pending request replay is idempotent and a conflicting reuse fails closed'
 	const response = await request('GET', '')
 	expect(await response.json()).toMatchObject({ decisionCapability: 'available' })
 })
+test('a read-only stack reports no decision capability and refuses every request', async () => {
+	await request('PUT', '', payload(), true)
+	const readOnly = createLocalFactoryRoutes({
+		database: db,
+		authenticate: async () => ({
+			userId: LOCAL_USER_ID,
+			organizationId: LOCAL_ORG_ID,
+			role: 'admin',
+			roles: ['admin'],
+			permissions: [],
+			entitlements: [],
+		}),
+		local: true,
+		browserOrigin: origin,
+		bridgeSecret: 'bridge-test',
+		readOnly: true,
+	})
+	const call = (method: string, suffix: string, body?: unknown) =>
+		readOnly.request('http://localhost/units/' + taskId + suffix, {
+			method,
+			headers: { origin, 'Content-Type': 'application/json' },
+			body: body === undefined ? undefined : JSON.stringify(body),
+		})
+	const input = {
+		id: uuidv7(),
+		gate: 'design',
+		artifactVersionId: versionId,
+		readyRevision: 1,
+		readyDigest: snapshot.ready.digest,
+		reportHash,
+		words: 'Review this design',
+	}
+	expect((await call('POST', '/requests', input)).status).toBe(409)
+	expect(await db.select().from(factoryRequests).where(eq(factoryRequests.id, input.id))).toEqual([])
+	expect(await (await call('GET', '')).json()).toMatchObject({ decisionCapability: 'unavailable' })
+})
 test('stale or foreign request bindings are refused', async () => {
 	await request('PUT', '', payload(), true)
 	const base = {

@@ -27,7 +27,8 @@
     "package:prod": "bun run build:prod-package && electron-builder --mac dir --arm64 --config electron-builder.prod.yml --config.mac.identity=null",
     "test": "bun run build:main && bun vitest run",
     "test:watch": "bun vitest",
-    "typecheck": "tsc --noEmit"
+    "package:factory": "tsup --config tsup.factory.config.ts && electron-builder --mac dir --arm64 --config electron-builder.factory.yml && codesign --force --deep --sign - \"release-factory/mac-arm64/Sam Factory.app\"",
+		"typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",

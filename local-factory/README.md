@@ -14,7 +14,7 @@ The API, issuer, proxy, Vite and Compose ports bind to 127.0.0.1. Occupied ports
 
 Use Bun and the repository lockfile. After installing dependencies, run `bun run prepare` to install the Effect TypeScript/oxlint replacements. Do not omit required native tool packages when installing; a missing native package is an installation failure, not a passing check.
 
-The commands below are sequential. Claim the project's shared stack before live testing, using the exact HP executable/root supplied by the project. Do not use the coordinator's release binary for bridge tests.
+The commands below are sequential. Claim the project's shared stack before live testing. If another worktree's stack holds the default ports, set `LOCAL_FACTORY_PORT_OFFSET` (for example `100`, so the browser origin becomes `https://127.0.0.1:55913`) for every command below; never stop the other stack to free a port.
 
 ```sh
 bun --no-env-file local-factory/stack.ts prepare
@@ -29,7 +29,26 @@ bun --no-env-file local-factory/stack.ts start
 
 In a second terminal, `bun --no-env-file local-factory/stack.ts browser` opens a dedicated headed browser with its own profile, leaf pin and one-time bootstrap fragment. It suppresses the credential-bearing navigation URL from command output. Set `LOCAL_CHROME_BINARY` if an installed Chrome cannot be discovered. Do not replace this with a global certificate bypass or your everyday browser profile. Close only this named browser session. Keep navigation in the bootstrapped tab: the credential lives in tab-scoped session storage. Browser controller sockets use a private, owned short directory recorded in `browser-socket-dir`, because deep worktree paths exceed macOS Unix socket limits. On macOS, Chrome runs with its inner sandbox disabled because nested sandbox initialization fails; the outer native sandbox still confines Chrome and its children to loopback. Use this profile only for this trusted local application.
 
-To project one unit, supply `LOCAL_HP_BINARY`, `LOCAL_HP_ROOT`, `LOCAL_HP_PROJECT` and `LOCAL_HP_THREAD` to the supervisor. The binary and root must be absolute paths. Build a debug executable from the pinned B3 source into an owned directory, or copy the coordinator-supplied debug executable. Never rebuild/edit the other thread's worktree or replace/use the coordinator's release binary. All evaluation uses a disposable HP root: old HP readers reject v1.1 gate events, so never mix them with the live coordinator's journals.
+To project one unit, supply `LOCAL_HP_PROJECT` and `LOCAL_HP_THREAD` to the supervisor. `LOCAL_HP_BINARY` and `LOCAL_HP_ROOT` then default to the coordinator's release binary (`~/Desktop/Zeroth-Agents/herdr-projects/target/release/herdr-projects`) and the live root (`~/.herdr-projects`); override either with an absolute path. The bridge always passes `--root` explicitly and never touches `~/.config/herdr-projects/`. The binary must speak gate API v1 / records extension 1.1, which the live root already holds. Never rebuild or replace the release binary from here.
+
+Set `LOCAL_HP_READ_ONLY=1` to look at a live unit without any chance of writing to HP: the bridge never builds its decision pump (no `unit gate request` or `attest`), and the API reports no decision capability and refuses browser requests with 409. The page says "Requests are off". Use this whenever you point a stack at the live root for review; request tests use a scratch root.
+
+```sh
+LOCAL_FACTORY_PORT_OFFSET=100 LOCAL_HP_PROJECT=software-factory LOCAL_HP_THREAD=t-0032 LOCAL_HP_READ_ONLY=1 \
+  bun --no-env-file local-factory/stack.ts start
+```
+
+## Sam Factory (Mac app)
+
+`Sam Factory.app` is a one-window Electron shell over this stack (`apps/riptide-electron/src/local-factory`). It runs none of the HumanLayer desktop host: no daemon, updater, Sentry, deep links or WorkOS. Build it with `bun run --cwd apps/riptide-electron package:factory`; the ad-hoc-signed bundle lands in `apps/riptide-electron/release-factory/mac-arm64/Sam Factory.app` (bundle id `technology.zeroth.sam-factory`, separate from `/Applications/HumanLayer.app`). Copy it to `/Applications` only after live-test sign-off. Because it is ad-hoc signed, Gatekeeper may ask once: right-click it and choose Open.
+
+`stack.ts start` writes `~/Library/Application Support/Sam Factory/stack.json` (origin and state directory; no secrets). The bridge writes the projected unit path to `factory-unit-path` in the state directory, and the app opens that page. Trust matches the pinned browser:
+
+- The app's in-memory session accepts only the stack's own leaf certificate, pinned by SPKI hash from `tls/cert.pem`, on `127.0.0.1`. Nothing is installed in the system trust store.
+- Every request outside the exact stack origin is cancelled. Non-loopback HTTPS links, such as a PR, open in the default browser.
+- The bootstrap credential goes from main to the page's `sessionStorage` over IPC, and only for the stack origin's top frame. It never appears in a URL, the window's history, argv or a log.
+
+With no stack running, the app says so; start the stack and press ⌘R. On the first launch after a cold Vite start the page can land on `/`; press ⌘R once Vite has warmed up.
 
 Use a disposable HP root in tests. The bridge runs `unit show <project> <thread> --json` using argv, validates the returned unit identity and coherent Ready/completion binding, and never reads/writes HP's record files directly. A delayed wakeup causes a fresh CLI read, not application of an old payload. Current-state convergence is supported; v1 has no event/progress export command.
 

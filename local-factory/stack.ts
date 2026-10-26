@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { mkdir, mkdtemp, lstat, readFile, writeFile, readdir } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { chromeWrapper } from './browser'
 import { localAuthConfig, loopbackOrigin } from './config'
@@ -10,8 +10,27 @@ import { loadIdentity } from './identity'
 
 const root = resolve(import.meta.dir, '..')
 const state = resolve(process.env.LOCAL_FACTORY_STATE ?? join(root, '.local-factory'))
-const browserOrigin = loopbackOrigin(process.env.LOCAL_BROWSER_ORIGIN ?? 'https://127.0.0.1:55813')
-const ports = { api: 55800, identity: 55801, proxy: 55802, ui: 55803, postgres: 62348, electric: 55310, redis: 55389 }
+const portOffset = Number(process.env.LOCAL_FACTORY_PORT_OFFSET ?? '0')
+if (!Number.isInteger(portOffset) || portOffset < 0 || portOffset > 1000)
+	throw new Error('LOCAL_FACTORY_PORT_OFFSET must be an integer from 0 to 1000')
+// One offset moves every port, so a second worktree runs beside another stack without stopping it.
+const ports = {
+	api: 55800 + portOffset,
+	identity: 55801 + portOffset,
+	proxy: 55802 + portOffset,
+	ui: 55803 + portOffset,
+	postgres: 62348 + portOffset,
+	electric: 55310 + portOffset,
+	redis: 55389 + portOffset,
+}
+const browserOrigin = loopbackOrigin(process.env.LOCAL_BROWSER_ORIGIN ?? `https://127.0.0.1:${55813 + portOffset}`)
+// The live HP root and the coordinator's release binary; both overridable, both passed explicitly via --root.
+const hpDefaults = {
+	LOCAL_HP_BINARY: join(homedir(), 'Desktop/Zeroth-Agents/herdr-projects/target/release/herdr-projects'),
+	LOCAL_HP_ROOT: join(homedir(), '.herdr-projects'),
+}
+/** Where Sam Factory.app looks for the running stack. Holds paths only, never secrets. */
+const appPointer = join(homedir(), 'Library/Application Support/Sam Factory/stack.json')
 const project = 'humanlayer-factory-' + randomStableName(root)
 
 function randomStableName(path: string) {
@@ -124,8 +143,11 @@ async function prepare() {
 		env[key] = 'http://127.0.0.1:9'
 	env.RESEND_FROM_EMAIL = 'sam@localhost.invalid'
 	env.ONBOARDING_CAMPAIGN_ENABLED = 'false'
-	for (const key of ['LOCAL_HP_BINARY', 'LOCAL_HP_ROOT', 'LOCAL_HP_PROJECT', 'LOCAL_HP_THREAD'])
+	for (const key of ['LOCAL_HP_BINARY', 'LOCAL_HP_ROOT', 'LOCAL_HP_PROJECT', 'LOCAL_HP_THREAD', 'LOCAL_HP_READ_ONLY'])
 		if (process.env[key]) env[key] = process.env[key]
+	// A named unit selects HP; the binary and root then default to the live coordinator's.
+	if (env.LOCAL_HP_THREAD) for (const [key, value] of Object.entries(hpDefaults)) env[key] ??= value
+	env.LOCAL_API_ORIGIN = `http://127.0.0.1:${ports.api}`
 	await writeFile(
 		join(state, 'compose.json'),
 		JSON.stringify({
@@ -313,6 +335,8 @@ if (import.meta.main) {
 	}
 	if (command === 'start') {
 		await tls(env)
+		await mkdir(dirname(appPointer), { recursive: true, mode: 0o700 })
+		await writeFile(appPointer, JSON.stringify({ origin: browserOrigin, state }), { mode: 0o600 })
 		const commands = [
 			['bun', '--no-env-file', 'local-factory/identity.ts'],
 			['bun', '--no-env-file', '--preload', './local-factory/preload.ts', 'apps/riptide-api/src/index.ts'],

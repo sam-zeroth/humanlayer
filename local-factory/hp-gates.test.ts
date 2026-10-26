@@ -21,6 +21,11 @@ integration(
 	async () => {
 		if (!binary) throw new Error('Missing HP test binary')
 		const fixture = await createHpFixture(binary, directory, resolve(import.meta.dir, '..'))
+		// A small-band design needs no Touch ID on any HP; live-test and merge now do, and must never be attested here.
+		await writeFile(
+			fixture.report,
+			'Gate: design — Review this exact output\n\n## Report\nA disposable HumanLayer round-trip test.\n',
+		)
 		const hp = new HpGates(binary, fixture.root, 'demo', 't-0001')
 		expect((await hp.capabilities()).capability).toBe('factory-gates-v1')
 		const context = await hp.context()
@@ -30,7 +35,7 @@ integration(
 			artifact_id: uuidv7(),
 			payload: {
 				id: '',
-				gate: 'live-test',
+				gate: 'design',
 				artifactVersionId: uuidv7(),
 				readyRevision: context.binding.ready_revision,
 				readyDigest: context.binding.ready_digest,
@@ -67,7 +72,7 @@ integration(
 		await expect(
 			hp.request({ ...hpRequest(row.payload, row.artifact_id, LOCAL_USER_ID), words: 'Changed intent' }),
 		).rejects.toThrow('conflict')
-		await writeFile(fixture.report, 'Gate: live-test — Updated report\n\nChanged reviewed bytes.\n')
+		await writeFile(fixture.report, 'Gate: design — Updated report\n\nChanged reviewed bytes.\n')
 		const superseded = await hp.show('hl:' + row.id)
 		expect(superseded.record.state).toBe('accepted')
 		expect(superseded.current).toBe(false)
@@ -169,4 +174,32 @@ integration('historical authorship receipt stays superseded when current Ready n
 	expect(old.attestation_required).toBe(true)
 	expect(old.current).toBe(false)
 	expect(currentHpApproval(old, await hp.context(), Date.now())).toBe(false)
+})
+
+integration('live-test and merge stay requested and require Touch ID; automated checks never attest them', async () => {
+	if (!binary) throw new Error('Missing HP test binary')
+	for (const gate of ['live-test', 'merge'] as const) {
+		const fixture = await createHpFixture(
+			binary,
+			join(directory, 'presence-' + gate),
+			resolve(import.meta.dir, '..'),
+		)
+		await writeFile(fixture.report, `Gate: ${gate} — Sam signs this exact report\n`)
+		const hp = new HpGates(binary, fixture.root, 'demo', 't-0001')
+		const context = await hp.context()
+		expect(context.gate).toBe(gate)
+		const intent = {
+			id: uuidv7(),
+			gate,
+			artifactVersionId: uuidv7(),
+			readyRevision: context.binding.ready_revision,
+			readyDigest: context.binding.ready_digest,
+			reportHash: context.binding.report_hash,
+			words: 'Sign this exact report',
+		}
+		const response = await hp.request(hpRequest(intent, uuidv7(), LOCAL_USER_ID))
+		expect(response.record.state).toBe('requested')
+		expect(response.attestation_required).toBe(true)
+		expect(response.current).toBe(false)
+	}
 })

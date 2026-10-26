@@ -39,6 +39,8 @@ interface LocalFactoryDependencies {
 	local: boolean
 	browserOrigin: string
 	bridgeSecret: string
+	/** The bridge reads HP but never sends it requests; browser requests are refused. */
+	readOnly?: boolean
 }
 
 export function createLocalFactoryRoutes(
@@ -48,6 +50,7 @@ export function createLocalFactoryRoutes(
 		local: process.env.LOCAL_SURFACE === '1',
 		browserOrigin: localAuthConfig().browserOrigin,
 		bridgeSecret: process.env.LOCAL_FACTORY_BRIDGE_SECRET ?? '',
+		readOnly: process.env.LOCAL_HP_READ_ONLY === '1',
 	},
 ) {
 	const { database } = dependencies
@@ -89,7 +92,10 @@ export function createLocalFactoryRoutes(
 		return c.json({
 			projection,
 			requests,
-			decisionCapability: projection.snapshot.gateContext ? ('available' as const) : ('unavailable' as const),
+			decisionCapability:
+				projection.snapshot.gateContext && !dependencies.readOnly
+					? ('available' as const)
+					: ('unavailable' as const),
 		})
 	})
 	app.put('/units/:taskId', async (c) => {
@@ -224,6 +230,7 @@ export function createLocalFactoryRoutes(
 		return updated ? c.json({ projected: true }) : c.json({ error: 'HP result binding does not match' }, 409)
 	})
 	app.post('/units/:taskId/requests', async (c) => {
+		if (dependencies.readOnly) return c.json({ error: 'Could not request approval. This stack is read-only.' }, 409)
 		const decoded = FactoryRequestSchema.safeParse(await c.req.json().catch(() => null))
 		if (!decoded.success)
 			return c.json({ error: 'Could not request approval. Review the document and try again.' }, 400)
