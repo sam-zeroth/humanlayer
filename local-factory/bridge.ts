@@ -322,7 +322,10 @@ if (import.meta.main) {
 	)
 	journal.bindSource(await realpath(hp.root), hp.project + '/' + hp.thread)
 	await hp.capabilities()
-	const decisions = new DecisionPump(hp, surface)
+	// Read-only: never construct the decision pump, so no request or attest can reach this HP root.
+	const readOnly = process.env.LOCAL_HP_READ_ONLY === '1'
+	const decisions = readOnly ? null : new DecisionPump(hp, surface)
+	let unitPath = ''
 	let stopped = false
 	process.on('SIGINT', () => {
 		stopped = true
@@ -340,7 +343,13 @@ if (import.meta.main) {
 				const coherent = await readHpProjection(hp)
 				const force = Date.now() - lastReconcile > 5000
 				const taskId = await projectUnit(journal, surface, coherent, force)
-				if (Date.now() - lastDecisions > 1000) {
+				const path = '/tasks/' + taskId + '?factory=true'
+				if (path !== unitPath) {
+					// Sam Factory.app opens this page; it holds no credential.
+					await writeFile(join(directory, 'factory-unit-path'), path, { mode: 0o600 })
+					unitPath = path
+				}
+				if (decisions && Date.now() - lastDecisions > 1000) {
 					await decisions.refresh(taskId)
 					lastDecisions = Date.now()
 				}
@@ -353,7 +362,7 @@ if (import.meta.main) {
 		}
 	} finally {
 		abort.abort()
-		await decisions.settle()
+		await decisions?.settle()
 		journal.close()
 		await release()
 	}

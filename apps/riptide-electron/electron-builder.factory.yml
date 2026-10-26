@@ -1,0 +1,27 @@
+# Sam Factory: a local, ad-hoc-signed window over the local factory stack. Never published.
+appId: technology.zeroth.sam-factory
+productName: Sam Factory
+extraMetadata:
+  name: sam-factory
+  main: dist-factory/main.cjs
+  dependencies: {}
+asar: true
+publish: null
+npmRebuild: false
+directories:
+  output: release-factory
+  buildResources: assets
+files:
+  - dist-factory/**
+  - package.json
+  - '!node_modules/**'
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dir
+      arch:
+        - arm64
+  icon: assets/icon.icns
+  identity: null
+  hardenedRuntime: false
+  minimumSystemVersion: 11.0.0
